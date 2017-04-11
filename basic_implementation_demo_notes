@@ -1,0 +1,10 @@
+Button press is sometimes non-functional
+Indicator for the knob for what direction you can turn it
+Make sure knob doesn't turn opposite direction of what we expect
+Indicator for how to switch between bomb sides (ie arrows pointing to the side)
+Controller.___ for tracking frames
+For knob turning, apparently using the whole hand kind of works
+Slow down movements - average
+Sometimes button is pressed when trying to swipe
+Bug where button stays pressed
+Maybe use an old-style telephone dial for knobs
