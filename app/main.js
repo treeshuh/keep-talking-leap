@@ -2,8 +2,17 @@ $(document).on('ready', function() {
 LEAPSCALE = 0.6;
 SWIPE_THRESH = 100;
 var cursor = new Cursor();
+var fingerCursors = [new Cursor(), new Cursor(), new Cursor(), new Cursor(), new Cursor()];
 
 var bombState = 0; // TODO: abstract this to a backbone object 
+
+var setUpFingerCursors = function() {
+	fingerCursors[0].setColor('red');
+	fingerCursors[1].setColor('orange');
+	fingerCursors[2].setColor('green');
+	fingerCursors[3].setColor('blue');
+	fingerCursors[4].setColor('purple');
+}
 
 var setUpUI = function() {
 	// set up cursor
@@ -28,6 +37,8 @@ var setUpUI = function() {
 	t.id = "bombstate-tag";
 	t.innerHTML = "FRONT";
 	document.body.appendChild(t);
+
+	setUpFingerCursors();
 }
 
 setUpUI();
@@ -50,6 +61,7 @@ Leap.loop({hand: function(hand) {
     var cursorPosition = [handPosition[0], handPosition[1]+300];
 
     cursor.setScreenPosition(cursorPosition);
+   
 }, enableGestures: true}, function(frame) {
 	if(frame.valid && frame.gestures.length > 0){
 	    frame.gestures.forEach(function(gesture){
@@ -85,6 +97,19 @@ Leap.loop({hand: function(hand) {
 					break;
 	        }
 	    });
+
+	    updateFingerLocations(frame);
   }
 }).use('screenPosition', {scale: LEAPSCALE});
+
+var updateFingerLocations = function(frame) {
+	handsList = frame.hands;
+	fingers = handsList[0].fingers;
+	for (i=0; i<fingers.length; ++i) {
+		fingertipLoc = fingers[i].tipPosition;
+		currentFinger = fingerCursors[fingers[i].type];
+		currentFinger.setScreenPosition([fingertipLoc[0], fingertipLoc[1]+300]);
+	}
+}
+
 });
