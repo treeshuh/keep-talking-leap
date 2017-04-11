@@ -2,11 +2,13 @@ $(document).on('ready', function() {
 LEAPSCALE = 0.6;
 SWIPE_THRESH = 100;
 CELL_WIDTH = 300;
+ROTATE_RATE = 2;
 var cursor = new Cursor();
 var fingerCursors = [new Cursor(), new Cursor(), new Cursor(), new Cursor(), new Cursor()];
 
 var bombState = 0; // TODO: abstract this to a backbone object 
 var activeButton = null;
+var activeKnob = null;
 
 var setUpFingerCursors = function() {
 	fingerCursors[0].setColor('red');
@@ -97,7 +99,49 @@ var clickButton = function() {
 }
 
 var addKnobModule = function(parentSelector, r, c) {
+	d = document.createElement("div");
+	k = document.createElement("img");
+	k.src = "./images/knob.jpg";
+	k.className = "knob-img";
+	d.appendChild(k);
+	console.log(d);
+	console.log(parentSelector + " " + makeTableFromRC(r, c))
+	$(parentSelector + " " + makeTableFromRC(r, c)).append(d);
+}
 
+
+// TODO: don't hardcode this
+var intersectKnob = function(intersectingModule, screenPosition) {
+	r = intersectingModule[0];
+	c = intersectingModule[1];
+	origin = $("table " + makeTableFromRC(r , c) + " img").offset();
+	if (origin) {
+		if (screenPosition[0] > origin.left
+			&& screenPosition[0] < origin.left + 200
+			&& screenPosition[1] > origin.top 
+			&& screenPosition[1] < origin.top + 200) {
+			$("table " + makeTableFromRC(r,c)).addClass("hover-knob");
+			activeKnob = intersectingModule;
+		} else {
+			 $("table " + makeTableFromRC(r,c)).removeClass("hover-knob");
+			 activeKnob = null;
+		}		
+	}
+}
+
+var rotateKnob = function() {
+	r = activeKnob[0];
+	c = activeKnob[1];
+	//http://stackoverflow.com/questions/8270612/get-element-moz-transformrotate-value-in-jquery
+	matrix = $("table " + makeTableFromRC(r,c) + " img").css("transform");
+	if(typeof matrix === 'string' && matrix !== 'none') {
+        var values = matrix.split('(')[1].split(')')[0].split(',');
+        var a = values[0];
+        var b = values[1];
+        var rotation = Math.round(Math.atan2(b, a) * (180/Math.PI));
+    } else { var rotation = 0; }
+	rotation += ROTATE_RATE;
+	rotation = $("table " + makeTableFromRC(r,c) + " img").css({"transform": 'rotate(' + rotation+ 'deg)'} );	
 }
 
 var setUpUI = function() {
@@ -146,7 +190,8 @@ var setUpUI = function() {
 
 	// add modules to layout
 	addButtonModule('#bomb-front', 1, 1);
-	addKnobModule('#bomb-back', 2, 1);
+	addButtonModule('#bomb-back', 1, 2);
+	addKnobModule('#bomb-back', 0, 1);
 
 	// hide the back
 	$("#bomb-back").hide();
@@ -177,9 +222,11 @@ Leap.loop({hand: function(hand) {
     if (intersectingModule) {
     	setIntersectingModule(intersectingModule[0], intersectingModule[1]);
     	intersectButton(intersectingModule, cursorPosition);
+    	intersectKnob(intersectingModule, cursorPosition);
     } else {
     	stopIntersectingModule();
     	activeButton = null;
+    	activeKnob = null;
     }
 
     cursor.setScreenPosition(cursorPosition);
@@ -188,9 +235,12 @@ Leap.loop({hand: function(hand) {
 	if(frame.valid && frame.gestures.length > 0){
 	    frame.gestures.forEach(function(gesture){
 	        switch (gesture.type){
-		        /*case "circle":
-		            console.log("Circle Gesture");
-		            break;*/
+		        case "circle":
+		        	if (activeKnob) {
+		            	console.log("Circle Gesture");
+		            	rotateKnob();		        		
+		        	}
+		            break;
 		        case "keyTap":
 		            //console.log("Key Tap Gesture");
 		            if (activeButton) {

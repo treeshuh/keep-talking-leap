@@ -6,6 +6,10 @@ body {
 	background-color: #efefef;
 }
 
+canvas {
+	z-index: 100;
+}
+
 .bomb-side {
 	height: 80vh;
 	width: 80vw;
@@ -45,4 +49,13 @@ body {
 
 .active-btn {
 	background-color: green;
+}
+
+.knob-img {
+	width: 200px;
+	height: 200px;
+}
+
+.module-container td.hover-knob.active-module {
+	background-color: #000000;
 }
