@@ -38,3 +38,11 @@ body {
 	width: 150px;
 	height: 150px;
 }
+
+.hover-btn {
+	background-color: yellow;
+}
+
+.active-btn {
+	background-color: green;
+}

@@ -6,6 +6,7 @@ var cursor = new Cursor();
 var fingerCursors = [new Cursor(), new Cursor(), new Cursor(), new Cursor(), new Cursor()];
 
 var bombState = 0; // TODO: abstract this to a backbone object 
+var activeButton = null;
 
 var setUpFingerCursors = function() {
 	fingerCursors[0].setColor('red');
@@ -59,6 +60,7 @@ var stopIntersectingModule = function() {
 	$("table tr td").removeClass("active-module");
 }
 
+// TODO: abstract this out to game state.
 var addButtonModule = function(parentSelector, r, c) {
 	b = document.createElement("button");
 	b.innerHTML = "Press ME!";
@@ -66,17 +68,33 @@ var addButtonModule = function(parentSelector, r, c) {
 	$(parentSelector + " " + makeTableFromRC(r, c)).append(b);
 }
 
-/*// TODO: don't hardcode this
+// TODO: don't hardcode this
 var intersectButton = function(intersectingModule, screenPosition) {
-	if (intersectingModule[0] == 1 && intersectingModule[1] == 1) {
-		if (screenPosition[0] > tableOrigin.left + CELL_WIDTH*c
-			&& screenPosition[0] < tableOrigin.left + CELL_WIDTH*(c+1)
-			&& screenPosition[1] > tableOrigin.top + CELL_WIDTH*r
-			&& screenPosition[1] < tableOrigin.top + CELL_WIDTH*(r+1)) {
-			return [r, c];
+	r = intersectingModule[0];
+	c = intersectingModule[1];
+	origin = $("table " + makeTableFromRC(r , c) + " button").offset();
+	if (origin) {
+		if (screenPosition[0] > origin.left
+			&& screenPosition[0] < origin.left + 150
+			&& screenPosition[1] > origin.top 
+			&& screenPosition[1] < origin.top + 150) {
+			$("table " + makeTableFromRC(r,c) + " button").addClass("hover-btn");
+			activeButton = intersectingModule;
+		} else {
+			 $("table " + makeTableFromRC(r,c) + " button").removeClass("hover-btn");
+			 activeButton = null;
 		}		
 	}
-}*/
+}
+
+var clickButton = function() { 
+	r = activeButton[0];
+	c = activeButton[1];
+	$("table " + makeTableFromRC(r,c) + " button").addClass("active-btn");
+	window.setTimeout(function() {
+		$("table " + makeTableFromRC(r,c) + " button").removeClass("active-btn");
+	}, 500);
+}
 
 var addKnobModule = function(parentSelector, r, c) {
 
@@ -158,8 +176,10 @@ Leap.loop({hand: function(hand) {
     intersectingModule = findIntersectingModule(cursorPosition);
     if (intersectingModule) {
     	setIntersectingModule(intersectingModule[0], intersectingModule[1]);
+    	intersectButton(intersectingModule, cursorPosition);
     } else {
     	stopIntersectingModule();
+    	activeButton = null;
     }
 
     cursor.setScreenPosition(cursorPosition);
@@ -168,15 +188,23 @@ Leap.loop({hand: function(hand) {
 	if(frame.valid && frame.gestures.length > 0){
 	    frame.gestures.forEach(function(gesture){
 	        switch (gesture.type){
-/*		        case "circle":
+		        /*case "circle":
 		            console.log("Circle Gesture");
-		            break;
+		            break;*/
 		        case "keyTap":
-		            console.log("Key Tap Gesture");
+		            //console.log("Key Tap Gesture");
+		            if (activeButton) {
+		            	console.log("tapping button");
+		            	clickButton();
+		            }
 		            break;
 		        case "screenTap":
 		            console.log("Screen Tap Gesture");
-		            break;*/
+		            if (activeButton) {
+		            	console.log("tapping button");
+		            	clickButton();
+		            }
+		            break;
 		        case "swipe":
 					//console.log("Swipe Gesture");
 
