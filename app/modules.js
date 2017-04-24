@@ -15,7 +15,7 @@ var GameManager = Backbone.Model.extend({
 	 *		2: did the player win?
 	 */
 	endGame: function() {
-		if (numFailedModules == maxFails) {		// TODO: or if tie runs out
+		if (numFailedModules == maxFails) {		// TODO: or if time runs out
 			return [true, false];
 		} else if (numModules == numDisarmedModules + numFailedModules) {
 			return [true, true];
@@ -66,9 +66,18 @@ var Module = Backbone.Model.extend({
 	}
 });
 
-/*
-var WiresModule = Module.extend({});
-*/
+var WiresModule = Module.extend({
+	defaults: {
+		POSSIBLE_WIRE_COLORS: ["red", "white", "blue", "black", "yellow"],
+
+		numWires: 3,
+		wires: []
+	},
+
+	initialize: function(numWires, situation) {
+
+	}
+});
 
 var ButtonModule = Module.extend({
 	defaults: {
@@ -86,10 +95,11 @@ var ButtonModule = Module.extend({
 	/**
 	 * Set button module parameters according to a specified situation in the manual.
 	 * Call when setting up bomb modules.
-	 * Assumes that the battery count and indicator lights on the bomb match the specified situation.
-	 * @param {int} situation - the number corresponding to the button parameters stated in the manual. 0 means randomly choose a situation.
+	 * @param {int} situation - the number corresponding to the button parameters stated in the manual. 0 means randomly choose a situation
+	 * @param {int} numBatteries - the number of batteries on the bomb
+	 * @param {List<String>} litIndicators - a list of indicator labels on the bomb that are lit
 	 */
-	createModule: function(situation) {
+	initialize: function(situation, numBatteries, litIndicators) {
 		if (situation == 0) {
 			min = 1
 			max = 7;
@@ -98,18 +108,33 @@ var ButtonModule = Module.extend({
 
 		if (situation == 1) {
 			set({buttonColor: "blue", buttonLabel: "abort"});
-		} else if (situation == 2) { // there must be 1 battery
+		} else if (situation == 2 && numBatteries > 1) {
 			set({buttonLabel: "detonate"});
-		} else if (situation == 3) { // indicator labelled 'car' must be lit
+		} else if (situation == 3 && litIndicators.includes("car")) {
 			set({buttonColor: "white"});
-		} else if (situation == 4) { // there must be at least 2 batteries, indicator labelled 'frk' must be lit
+		} else if (situation == 4 && numBatteries > 2 && litIndicators.includes("frk")) {
 			
 		} else if (situation == 5) {
 			set({buttonColor: "yellow"});
 		} else if (situation == 6) {
 			set({buttonColor: "red", buttonLabel: "hold"});
 		} else {
+			set({buttonColor: _.sample(POSSIBLE_BUTTON_COLORS)});
+			var possibleLabels = POSSIBLE_BUTTON_LABELS;
 
+			if (get(buttonColor) == "blue") {
+				possibleLabels = _.select(POSSIBLE_BUTTON_LABELS, function(label){ return label != "abort"; });
+			} 
+
+			if (numBatteries > 1) {
+				possibleLabels = _.select(POSSIBLE_BUTTON_LABELS, function(label){ return label != "detonate"; });
+			}
+
+			if (get(buttonColor) == "red") {
+				possibleLabels = _.select(POSSIBLE_BUTTON_LABELS, function(label){ return label != "hold"; });
+			}
+
+			set({buttonLabel: _.sample(possibleLabels)});
 		}
 
 		if (get(buttonColor) == "none") {
