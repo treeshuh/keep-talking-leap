@@ -351,7 +351,51 @@ var WiresModule = Module.extend({
 	 * @return {bool} whether the player successfully disarms the module
 	 */
 	passOrFail: function(wirePosition) {
-		return false;
+		var numWires = get(wireSet).length;
+
+		if (numWires == 3) {
+			if (!get(wireSet).includes("red")) {
+				return wirePosition == 1;
+			} else if (_.last(get(wireSet)) == "white") {
+				return wirePosition == numWires - 1;
+			} else if (get(wireSet).indexOf("blue") != get(wireSet).lastIndexOf("blue")) {
+				return wirePosition == get(wireSet).lastIndexOf("blue");
+			} else {
+				return wirePosition == numWires - 1;
+			}
+		} else if (numWires == 4) {
+			if (get(wireSet).indexOf("red") != get(wireSet).lastIndexOf("red") && serialNumber % 2 == 1) {
+				return wirePosition == get(wireSet.lastIndexOf("red"));
+			} else if (_.last(get(wireSet)) == "yellow" && !get(wireSet).includes("red")) {
+				return wirePosition == 0;
+			} else if (get(wireSet).indexOf("blue") == get(wireSet).lastIndexOf("blue") && get(wireSet).includes("blue")) {
+				return wirePosition == 0;
+			} else if (get(wireSet).indexOf("yellow") != get(wireSet).lastIndexOf("yellow")) {
+				return wirePosition == numWires - 1;
+			} else {
+				return wirePosition == 1;
+			}
+		} else if (numWires == 5) {
+			if (_.last(get(wireSet)) == "black" && serialNumber % 2 == 1) {
+				return wirePosition == 3;
+			} else if (get(wireSet).indexOf("red") == get(wireSet).lastIndexOf("red") && get(wireSet).includes("red") && get(wireSet).indexOf("yellow") != get(wireSet).lastIndexOf("yellow")) {
+				return wirePosition == 0;
+			} else if (!get(wireSet).includes("black")) {
+				return wirePosition == 1;
+			} else {
+				return wirePosition == 0;
+			}
+		} else {
+			if (!get(wireSet).includes("yellow") && serialNumber % 2 == 1) {
+				return wirePosition == 2;
+			} else if (get(wireSet).indexOf("yellow") == get(wireSet).lastIndexOf("yellow") && get(wireSet).includes("yellow") && get(wireSet).indexOf("white") != get(wireSet).lastIndexOf("white")) {
+				return wirePosition == 3;
+			} else if (!get(wireSet).includes("red")) {
+				return wirePosition == numWires = 1;
+			} else {
+				return wirePosition == 3;
+			}
+		}
 	}
 });
 
