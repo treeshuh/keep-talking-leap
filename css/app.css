@@ -8,6 +8,7 @@ body {
 
 canvas {
 	z-index: 100;
+	pointer-events: none;
 }
 
 .bomb-side {
@@ -58,4 +59,32 @@ canvas {
 
 .module-container td.hover-knob.active-module {
 	background-color: #000000;
+}
+
+.wire-container {
+	width: 100%;
+	height: 100%;
+	position: relative;
+}
+
+.wire {
+	height: 100%;
+	width: 10px;
+	display: inline-block;
+	background-color: green;
+	border: 1px solid white;
+	position: absolute;
+	top: 0;
+}
+
+.wire.hover-wire {
+	background-color: yellow;
+}
+
+.wire.indicate-wire {
+	background-color: orange;
+}
+
+.wire.cut-wire {
+	background-color: black;
 }

@@ -9,6 +9,7 @@ var fingerCursors = [new Cursor(), new Cursor(), new Cursor(), new Cursor(), new
 var bombState = 0; // TODO: abstract this to a backbone object 
 var activeButton = null;
 var activeKnob = null;
+var activeWire = null;
 
 var setUpFingerCursors = function() {
 	fingerCursors[0].setColor('red');
@@ -83,6 +84,8 @@ var intersectButton = function(intersectingModule, screenPosition) {
 			$("table " + makeTableFromRC(r,c) + " button").addClass("hover-btn");
 			activeButton = intersectingModule;
 			activeKnob = null;
+			activeWire = null;
+			resetWires();
 		} else {
 			 $("table " + makeTableFromRC(r,c) + " button").removeClass("hover-btn");
 			 activeButton = null;
@@ -105,8 +108,6 @@ var addKnobModule = function(parentSelector, r, c) {
 	k.src = "./images/knob.jpg";
 	k.className = "knob-img";
 	d.appendChild(k);
-	console.log(d);
-	console.log(parentSelector + " " + makeTableFromRC(r, c))
 	$(parentSelector + " " + makeTableFromRC(r, c)).append(d);
 }
 
@@ -124,6 +125,8 @@ var intersectKnob = function(intersectingModule, screenPosition) {
 			$("table " + makeTableFromRC(r,c)).addClass("hover-knob");
 			activeKnob = intersectingModule;
 			activeButton = null;
+			activeWire = null;
+			resetWires();
 		} else {
 			 $("table " + makeTableFromRC(r,c)).removeClass("hover-knob");
 			 activeKnob = null;
@@ -145,6 +148,87 @@ var rotateKnob = function() {
 	rotation += ROTATE_RATE;
 	rotation = $("table " + makeTableFromRC(r,c) + " img").css({"transform": 'rotate(' + rotation+ 'deg)'} );	
 }
+
+var createWireID = function(r, c, numWire) {
+	return "wire-"+String(r)+"-"+String(c)+"-"+String(numWire);
+}
+
+// TODO: abstract this out to game state.
+var addWireModule = function(parentSelector, r, c, numWires) {
+	var wm = document.createElement("div");
+	wm.className = "wire-container";
+	for (var i=0; i < numWires; i++) {
+		var w = document.createElement("div");
+		w.className = "wire";
+		w.id = createWireID(r, c, i);
+		w.style.left = String(30 + (CELL_WIDTH-100)/(numWires-1)*i) + "px";
+		wm.appendChild(w);
+	}
+	$(parentSelector + " " + makeTableFromRC(r, c)).append(wm);
+	$(parentSelector + " " + makeTableFromRC(r, c) + " .wire-container").data("numWires", numWires);
+}
+
+var WIRE_MARGIN = 10;
+// TODO: don't hardcode this
+var intersectWire = function(intersectingModule, screenPosition) {
+	r = intersectingModule[0];
+	c = intersectingModule[1];
+	numWires = $("table " + makeTableFromRC(r , c) + " .wire-container").data("numWires");
+	if (numWires) {
+		for (var i=0; i < numWires; i++) {
+			var origin = $("#" + createWireID(r, c, i)).offset();
+			if (origin && !$("#" + createWireID(r, c, i)).data("cut")) {
+				if (screenPosition[0] > origin.left - WIRE_MARGIN
+				&& screenPosition[0] < origin.left + $("#" + createWireID(r, c, i)).width() + WIRE_MARGIN
+				&& screenPosition[1] > origin.top - WIRE_MARGIN
+				&& screenPosition[1] < origin.top + $("#" + createWireID(r, c, i)).height() + WIRE_MARGIN) {
+					$("#" + createWireID(r, c, i)).addClass("hover-wire");
+					if (!activeWire || activeWire[0] != r || activeWire[1] != c || activeWire[2] != i) {
+						activeWire = [r, c, i];
+						activeButton = null;
+						activeKnob = null;
+						cutting = false;
+					}
+					return;
+				} else {
+					$("#" + createWireID(r, c, i)).removeClass("hover-wire");
+					$("#" + createWireID(r, c, i)).removeClass("indicate-wire");
+				}
+			}
+		}
+		activeWire = null;
+	}
+}
+
+var resetWires = function() {
+	$(".wire").removeClass("hover-wire");
+	$(".wire").removeClass("indicate-wire");
+}
+
+var indicateCut = function() {
+	$("#" + createWireID(activeWire[0], activeWire[1], activeWire[2])).removeClass("hover-wire");	
+	$("#" + createWireID(activeWire[0], activeWire[1], activeWire[2])).addClass("indicate-wire");
+}
+
+var cancelCut = function() {
+	$("#" + createWireID(activeWire[0], activeWire[1], activeWire[2])).removeClass("hover-wire");	
+	$("#" + createWireID(activeWire[0], activeWire[1], activeWire[2])).removeClass("indicate-wire");	
+}
+
+var cutWire = function() {
+	$("#" + createWireID(activeWire[0], activeWire[1], activeWire[2])).removeClass("indicate-wire");	
+	$("#" + createWireID(activeWire[0], activeWire[1], activeWire[2])).addClass("cut-wire");
+	$("#" + createWireID(activeWire[0], activeWire[1], activeWire[2])).data("cut", true);	
+}
+
+/*var clickButton = function() { 
+	r = activeButton[0];
+	c = activeButton[1];
+	$("table " + makeTableFromRC(r,c) + " button").addClass("active-btn");
+	window.setTimeout(function() {
+		$("table " + makeTableFromRC(r,c) + " button").removeClass("active-btn");
+	}, 500);
+}*/
 
 var setUpUI = function() {
 	// set up cursor
@@ -194,6 +278,8 @@ var setUpUI = function() {
 	addButtonModule('#bomb-front', 1, 1);
 	addButtonModule('#bomb-back', 1, 2);
 	addKnobModule('#bomb-back', 0, 1);
+	addWireModule("#bomb-front", 0, 0, 4);
+	addWireModule("#bomb-back", 1, 1, 3);
 
 	// hide the back
 	$("#bomb-back").hide();
@@ -232,13 +318,12 @@ var vec3AngleBetween = function(vec1, vec2) {
 	var b = vec1[1]*vec2[1];
 	var c = vec1[2]*vec2[2];
 	var dotProduct = a+b+c;
-	console.log(vec1, vec3Magnitude(vec1), vec2, vec3Magnitude(vec2))
 	var cosTheta = dotProduct/(vec3Magnitude(vec1)*vec3Magnitude(vec2));
-	console.log(cosTheta);
 	return Math.acos(cosTheta);
 }
 
 var pointingFingers = [];
+var startDist = null;
 var cutting = false;
 var cutReset = false;
 
@@ -251,20 +336,21 @@ Leap.loop({hand: function(hand) {
     	setIntersectingModule(intersectingModule[0], intersectingModule[1]);
     	intersectButton(intersectingModule, cursorPosition);
     	intersectKnob(intersectingModule, cursorPosition);
+    	intersectWire(intersectingModule, cursorPosition);
 
     	// look for cutting
     	// palm position down
-    	if (Math.abs(hand.roll()) <= 10*Math.PI/180) {
+    	if ((activeWire) && (Math.abs(hand.roll()) <= 30*Math.PI/180)) {
     		if (cutting) {
-    			console.log("in cutting motion"); 
     			var currentFingerDist = vec3Dist(hand.finger(pointingFingers[0].id).tipPosition, hand.finger(pointingFingers[1].id).tipPosition);
-    			console.log(currentFingerDist);
     			if (currentFingerDist == ERROR_TEXT) {
     				cutting = false;
+    				cancelCut();
     			}
-    			if (currentFingerDist <= 25) {
+    			if ((currentFingerDist <= 30 || (startDist-currentFingerDist)>7)  && activeWire) {
     				console.log("cut");
     				cutting = false;
+    				cutWire();
     				cutReset = true;
     				window.setTimeout(function() {
     					cutReset = false;
@@ -280,8 +366,10 @@ Leap.loop({hand: function(hand) {
 	  	  		});
     			if (pointingFingers.length == 2 && !cutting && !cutReset) {
     				var currentFingerDist = vec3Dist(pointingFingers[0].tipPosition, pointingFingers[1].tipPosition);
-    				if (currentFingerDist >= 35) {
+    				if (currentFingerDist >= 32) {
+    					startDist = currentFingerDist;
     					cutting = true;
+    					indicateCut();
     					console.log("cutting");
     				}
     			} 
@@ -291,6 +379,8 @@ Leap.loop({hand: function(hand) {
     	stopIntersectingModule();
     	activeButton = null;
     	activeKnob = null;
+    	activeWire = null;
+    	resetWires();
     }
 
     cursor.setScreenPosition(cursorPosition);
