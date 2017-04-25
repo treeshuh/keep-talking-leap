@@ -21,15 +21,16 @@
     <script type="text/javascript" src="lib/underscore.min.js"></script>
     <script type="text/javascript" src="lib/backbone.min.js"></script>
 
-    <!-- App code -->
-    <script type="text/javascript" src="app/models.js"></script>
-    <script type="text/javascript" src="app/main.js"></script>
-
     <!-- Templates for module views -->
     <script type="text/template" id="wiresTemplate"></script>
     <script type="text/template" id="buttonTemplate">
-        <button style="color: <%= buttonColor %>"><%= buttonLabel %></button>
+        <button><% buttonLabel %></button>
     </script>
+
+    <!-- App code -->
+    <script type="text/javascript" src="app/modules.js"></script>
+    <script type="text/javascript" src="app/models.js"></script>
+    <script type="text/javascript" src="app/main.js"></script>
   </head>
   <body>
   </body>

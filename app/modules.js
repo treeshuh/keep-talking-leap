@@ -1,8 +1,3 @@
-/** 
- * How to create and display an external template in html page using backbone.js
- * http://stackoverflow.com/questions/19905406/how-to-create-and-display-external-template-in-html-page-using-backbone-js
- */
-
 var GameManager = Backbone.Model.extend({
 	defaults: {
 		MAX_FAILS: 3,					// bomb explodes upon this many fails
@@ -579,16 +574,16 @@ var ButtonModule = Module.extend({
 var ButtonView = Backbone.View.extend({
 	tagName: 'div',
 	className: 'module buttonModule',
+	template: _.template($("#buttonTemplate").html()),
+	model: "none",
 
-	initialize: function() {
+	initialize: function(attributes) {
+		this.model = attributes.model;
 		this.render();
 	},
 
 	render: function() {
-		$.get('templates/view_templates.html', function () {
-            template = _.template("#buttonTemplate");
-            this.$el.html(template);  
-        }, 'html');
+		this.$el.html(this.template(this.model.toJSON()));
 	}
 });
 
