@@ -5,13 +5,64 @@ CELL_WIDTH = 300;
 ROTATE_RATE = 1;
 INITIAL_ROTATE = 268;
 ROTATE_LOCK_ANGLE = 31.01;
+BUTTON_TYPE = "big-button-type";
+KNOB_TYPE = "knob-type";
+WIRE_TYPE = "wire-type";
+BOMB_FRONT = "#bomb-front";
+BOMB_BACK = "#bomb-back";
 var cursor = new Cursor();
 var fingerCursors = [new Cursor(), new Cursor(), new Cursor(), new Cursor(), new Cursor()];
 
 var bombState = 0; // TODO: abstract this to a backbone object 
+
+var clickable = true;
 var activeButton = null;
 var activeKnob = null;
 var activeWire = null;
+
+var MODULES = [
+	{
+		type: BUTTON_TYPE, 
+		side: BOMB_FRONT,
+		r: 1,
+		c: 1,
+		goal: 2,
+		num: 0
+	},
+	{
+		type: BUTTON_TYPE, 
+		side: BOMB_BACK,
+		r: 1,
+		c: 2,
+		goal: 0,
+		num: 0	
+	},
+	{
+		type: KNOB_TYPE, 
+		side: BOMB_BACK,
+		r: 0,
+		c: 1,
+		goal: 8
+	}, 
+	{
+		type: WIRE_TYPE,
+		side: BOMB_FRONT,
+		r: 0,
+		c: 0,
+		numWires: 4,
+		goal: [0, 3],
+		cut: []
+	},
+	{
+		type: WIRE_TYPE,
+		side: BOMB_BACK,
+		r: 1,
+		c: 1,
+		numWires: 3,
+		goal: [1],
+		cut: []
+	},	
+]
 
 var setUpFingerCursors = function() {
 	fingerCursors[0].setColor('red');
@@ -99,13 +150,43 @@ var intersectButton = function(intersectingModule, screenPosition) {
 	}
 }
 
+var bombStateMatchesSide = function(side) {
+	if (bombState == 0) {
+		return side == BOMB_FRONT;
+	} else if (bombState == 1) {
+		return side == BOMB_BACK;
+	}
+}
+
+var bombSide = function() {
+	if (bombState == 0) {
+		return BOMB_FRONT;
+	} else if (bombState == 1) {
+		return BOMB_BACK;
+	}
+}
+
 var clickButton = function() { 
+	clickable = false;
 	r = activeButton[0];
 	c = activeButton[1];
-	$("table " + makeTableFromRC(r,c) + " button").addClass("active-btn");
+	$(bombSide() + " table " + makeTableFromRC(r,c) + " button").addClass("active-btn");
 	window.setTimeout(function() {
-		$("table " + makeTableFromRC(r,c) + " button").removeClass("active-btn");
+		$(bombSide() + " table " + makeTableFromRC(r,c) + " button").removeClass("active-btn");
+		clickable = true;
 	}, 500);
+	MODULES.some(function(module) {
+		if (bombStateMatchesSide(module.side) && r == module.r && c == module.c && module.type == BUTTON_TYPE) {
+			module.num += 1;
+			if (module.num > module.goal) {
+				$(bombSide() + " table " + makeTableFromRC(r,c)).addClass("module-fail");
+				$(bombSide() + " table " + makeTableFromRC(r,c)).removeClass("module-success");
+			} else if (module.num == module.goal) {
+				$(bombSide() + " table " + makeTableFromRC(r,c)).addClass("module-success");
+			}
+			return true; // break out of some loop
+		}
+	});
 }
 
 var addKnobModule = function(parentSelector, r, c) {
@@ -164,7 +245,7 @@ var rotateKnob = function(clockwise) {
 	r = activeKnob[0];
 	c = activeKnob[1];
 	//http://stackoverflow.com/questions/8270612/get-element-moz-transformrotate-value-in-jquery
-	matrix = $("table " + makeTableFromRC(r,c) + " .knob-img").css("transform");
+	matrix = $(bombSide() + " table " + makeTableFromRC(r,c) + " .knob-img").css("transform");
 	if(typeof matrix === 'string' && matrix !== 'none') {
         var values = matrix.split('(')[1].split(')')[0].split(',');
         var a = values[0];
@@ -176,8 +257,20 @@ var rotateKnob = function(clockwise) {
     } else {
     	rotation -= ROTATE_RATE;
     }
-    $("table " + makeTableFromRC(r,c) + " .knob-text").text(knobRotationToValue(rotation));
-	rotation = $("table " + makeTableFromRC(r,c) + " .knob-img").css({"transform": 'rotate(' + rotation+ 'deg)'} );	
+    var value = knobRotationToValue(rotation);
+    $(bombSide() + " table " + makeTableFromRC(r,c) + " .knob-text").text(value);
+	rotation = $(bombSide() + " table " + makeTableFromRC(r,c) + " .knob-img").css({"transform": 'rotate(' + rotation+ 'deg)'} );	
+	MODULES.some(function(module) {
+		if (bombStateMatchesSide(module.side) && r == module.r && c == module.c && module.type == KNOB_TYPE) {
+			if (value == module.goal) {
+				$(bombSide() + " table " + makeTableFromRC(r,c)).addClass("module-success");
+			} else {
+				$(bombSide() + " table " + makeTableFromRC(r,c)).removeClass("module-success");
+			}
+			return true; // break out of some loop
+		}
+	});
+
 }
 
 var createWireID = function(r, c, numWire) {
@@ -249,7 +342,36 @@ var cancelCut = function() {
 var cutWire = function() {
 	$("#" + createWireID(activeWire[0], activeWire[1], activeWire[2])).removeClass("indicate-wire");	
 	$("#" + createWireID(activeWire[0], activeWire[1], activeWire[2])).addClass("cut-wire");
-	$("#" + createWireID(activeWire[0], activeWire[1], activeWire[2])).data("cut", true);	
+	$("#" + createWireID(activeWire[0], activeWire[1], activeWire[2])).data("cut", true);
+	MODULES.some(function(module) {
+		var verifyWires = function(cut, goal) {
+			for (var i = 0; i < cut.length; i++) {
+				if (goal.indexOf(cut[i]) < 0) {
+					return -1; // extra cut
+				}
+			}
+
+			for (var j = 0; j < goal.length; j++) {
+				if (cut.indexOf(goal[j]) < 0) {
+					return 0; // missing cut
+				}
+			}
+
+			return 1; //cut == goal
+		}
+
+		if (bombStateMatchesSide(module.side) && r == module.r && c == module.c && module.type == WIRE_TYPE) {
+			module.cut.push(activeWire[2]);
+			var verified = verifyWires(module.cut, module.goal);
+			if (verified == 1) {
+				$(bombSide() + " table " + makeTableFromRC(r,c)).addClass("module-success");
+			} else if (verified == -1) {
+				$(bombSide() + " table " + makeTableFromRC(r,c)).addClass("module-fail");
+				$(bombSide() + " table " + makeTableFromRC(r,c)).removeClass("module-success");
+			}
+			return true; // break out of some loop
+		}
+	});
 }
 
 /*var clickButton = function() { 
@@ -306,14 +428,23 @@ var setUpUI = function() {
 	document.body.append(d2);
 
 	// add modules to layout
-	addButtonModule('#bomb-front', 1, 1);
-	addButtonModule('#bomb-back', 1, 2);
-	addKnobModule('#bomb-back', 0, 1);
-	addWireModule("#bomb-front", 0, 0, 4);
-	addWireModule("#bomb-back", 1, 1, 3);
+	for (var i = 0; i < MODULES.length; i++) {
+		var module = MODULES[i];
+		switch (module.type) {
+			case BUTTON_TYPE: 
+				addButtonModule(module.side, module.r, module.c);
+				break;
+			case KNOB_TYPE:
+				addKnobModule(module.side, module.r, module.c);
+				break;
+			case WIRE_TYPE:
+				addWireModule(module.side, module.r, module.c, module.numWires);
+				break;
+		}
+	}
 
 	// hide the back
-	$("#bomb-back").hide();
+	$(BOMB_BACK).hide();
 
 	setUpFingerCursors();
 }
@@ -438,7 +569,7 @@ Leap.loop({hand: function(hand) {
 		            break;
 		        case "keyTap":
 		            //console.log("Key Tap Gesture");
-		            if (activeButton) {
+		            if (activeButton && clickable) {
 		            	console.log("tapping button");
 		            	clickButton();
 		            }

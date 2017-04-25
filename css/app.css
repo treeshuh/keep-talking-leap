@@ -9,6 +9,7 @@ body {
 canvas {
 	z-index: 100;
 	pointer-events: none;
+	position: relative;
 }
 
 .bomb-side {
@@ -28,6 +29,14 @@ canvas {
 
 .module-container td.active-module {
 	background-color: #8a8a8a;
+}
+
+.module-container td.module-fail {
+	background-color: #e74c3c;
+}
+
+.module-container td.module-success {
+	background-color: #2ecc71;
 }
 
 .circle-btn {
