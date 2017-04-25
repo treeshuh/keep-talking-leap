@@ -55,10 +55,29 @@ canvas {
 .knob-img {
 	width: 200px;
 	height: 200px;
+	z-index: 1;
+}
+
+.knob-text {
+	z-index: 10;
+	position: relative;
+	height: 15px;
+	width: 100%;
+	text-align: center;
+}
+
+.knob-arrow {
+	display: block;
+	width: 20px;
+	height: 20px;
+	margin-left: auto;
+	margin-right: auto;
+	z-index: 10;
+	position: relative;
 }
 
 .module-container td.hover-knob.active-module {
-	background-color: #000000;
+	background-color: #ffffff;
 }
 
 .wire-container {
