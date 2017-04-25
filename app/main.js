@@ -35,7 +35,11 @@ var createTable = function(rows, cols) {
 }
 
 var findIntersectingModule = function(screenPosition) {
-	tableOrigin = $("table").offset();
+	if (bombState == 0) {
+		var tableOrigin = $("#bomb-front").offset();
+	} else {
+		var tableOrigin = $("#bomb-back").offset();
+	}
 	rows = $("table tr").length;
 	cols = $("table tr td").length;
 

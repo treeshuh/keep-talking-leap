@@ -18,14 +18,6 @@ canvas {
 	margin-right: auto;
 }
 
-.bomb-side#bomb-front {
-	background-color: #ffffff;
-}
-
-.bomb-side#bomb-back {
-	background-color: #9a9a9a;
-}
-
 .module-container td{
 	border: 1px solid black;
 	background-color: #afafaf;
