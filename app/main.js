@@ -10,6 +10,10 @@ KNOB_TYPE = "knob-type";
 WIRE_TYPE = "wire-type";
 BOMB_FRONT = "#bomb-front";
 BOMB_BACK = "#bomb-back";
+MODULE_SUCCESS = "module-success";
+MODULE_FAIL = "module-fail";
+MAX_FAILS = 3;
+
 var cursor = new Cursor();
 var fingerCursors = [new Cursor(), new Cursor(), new Cursor(), new Cursor(), new Cursor()];
 
@@ -27,7 +31,8 @@ var MODULES = [
 		r: 1,
 		c: 1,
 		goal: 2,
-		num: 0
+		num: 0, 
+		state: null
 	},
 	{
 		type: BUTTON_TYPE, 
@@ -35,14 +40,16 @@ var MODULES = [
 		r: 1,
 		c: 2,
 		goal: 0,
-		num: 0	
+		num: 0,
+		state: MODULE_SUCCESS
 	},
 	{
 		type: KNOB_TYPE, 
 		side: BOMB_BACK,
 		r: 0,
 		c: 1,
-		goal: 8
+		goal: 8,
+		state: null
 	}, 
 	{
 		type: WIRE_TYPE,
@@ -51,7 +58,8 @@ var MODULES = [
 		c: 0,
 		numWires: 4,
 		goal: [0, 3],
-		cut: []
+		cut: [],
+		state: null
 	},
 	{
 		type: WIRE_TYPE,
@@ -60,9 +68,28 @@ var MODULES = [
 		c: 1,
 		numWires: 3,
 		goal: [1],
-		cut: []
+		cut: [],
+		state: null
 	},	
 ]
+
+var checkEndGame = function() {
+	var numFails = 0;
+	var numCompletes = 0;
+	MODULES.forEach(function(module) {
+		if (module.state == MODULE_FAIL) {
+			numFails += 1;
+			numCompletes += 1;
+		} else if (module.state == MODULE_SUCCESS) {
+			numCompletes += 1;
+		}
+	});
+	if (numFails >= MAX_FAILS) {
+		window.alert("The bomb exploded!");
+	} else if (numCompletes == MODULES.length) {
+		window.alert("You defused the bomb");
+	}
+}
 
 var setUpFingerCursors = function() {
 	fingerCursors[0].setColor('red');
@@ -181,12 +208,15 @@ var clickButton = function() {
 			if (module.num > module.goal) {
 				$(bombSide() + " table " + makeTableFromRC(r,c)).addClass("module-fail");
 				$(bombSide() + " table " + makeTableFromRC(r,c)).removeClass("module-success");
+				module.state = MODULE_FAIL;
 			} else if (module.num == module.goal) {
 				$(bombSide() + " table " + makeTableFromRC(r,c)).addClass("module-success");
+				module.state = MODULE_SUCCESS;
 			}
 			return true; // break out of some loop
 		}
 	});
+	checkEndGame();
 }
 
 var addKnobModule = function(parentSelector, r, c) {
@@ -264,13 +294,15 @@ var rotateKnob = function(clockwise) {
 		if (bombStateMatchesSide(module.side) && r == module.r && c == module.c && module.type == KNOB_TYPE) {
 			if (value == module.goal) {
 				$(bombSide() + " table " + makeTableFromRC(r,c)).addClass("module-success");
+				module.state = MODULE_SUCCESS;
 			} else {
 				$(bombSide() + " table " + makeTableFromRC(r,c)).removeClass("module-success");
+				module.state = null;
 			}
 			return true; // break out of some loop
 		}
 	});
-
+	checkEndGame();
 }
 
 var createWireID = function(r, c, numWire) {
@@ -365,13 +397,17 @@ var cutWire = function() {
 			var verified = verifyWires(module.cut, module.goal);
 			if (verified == 1) {
 				$(bombSide() + " table " + makeTableFromRC(r,c)).addClass("module-success");
+				module.state = MODULE_SUCCESS;
 			} else if (verified == -1) {
 				$(bombSide() + " table " + makeTableFromRC(r,c)).addClass("module-fail");
 				$(bombSide() + " table " + makeTableFromRC(r,c)).removeClass("module-success");
+				module.state = MODULE_FAIL;
 			}
 			return true; // break out of some loop
 		}
 	});
+	checkEndGame();
+
 }
 
 /*var clickButton = function() { 
