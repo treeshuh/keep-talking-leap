@@ -38,6 +38,26 @@ canvas {
 	background-color: #8a8a8a;
 }
 
+.red {
+	background-color: red;
+}
+
+.yellow {
+	background-color: yellow;
+}
+
+.blue {
+	background-color: blue;
+}
+
+.white {
+	background-color: white;
+}
+
+.green {
+	background-color: green;
+}
+
 .circle-btn {
 	border-radius: 50%;
 	width: 150px;
@@ -87,4 +107,14 @@ canvas {
 
 .wire.cut-wire {
 	background-color: black;
+}
+
+/* Succeeded in disarming module */
+.pink {
+	background-color: pink;
+}
+
+/* Failed in disarming module */
+.purple {
+	background-color: purple;
 }

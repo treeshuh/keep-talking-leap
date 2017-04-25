@@ -48,8 +48,8 @@ var ModuleManager = Backbone.Collection.extend({
 	 */
 	getModuleAt: function(side, row, column) {
 		var moduleList =  this.where({ side: side, row: row, column: column });
-
-		if (moduleList.length > 1) {
+		
+		if (moduleList.length >= 1) {
 			return moduleList[0];
 		} else {
 			return null;
@@ -402,17 +402,17 @@ var WiresModule = Module.extend({
 
 var WiresView = Backbone.View.extend({
 	tagName: 'div',
-	className: 'wireModule',
+	className: 'module wiresModule',
+	template: _.template($("#wiresTemplate").html()),
+	model: "none",
 
-	initialize: function() {
+	initialize: function(attributes) {
+		this.model = attributes.model;
 		this.render();
 	},
 
 	render: function() {
-		$.get('templates/view_templates.html', function (data) {
-            template = _.template(data, {  });
-            this.$el.html(template);  
-        }, 'html');
+		this.$el.html(this.template(this.model.toJSON()));
 	}
 });
 
@@ -421,7 +421,7 @@ var ButtonModule = Module.extend({
 		POSSIBLE_BUTTON_COLORS: ["red", "yellow", "blue", "white", "green"],
 		POSSIBLE_BUTTON_LABELS: ["abort", "detonate", "hold"],
 		POSSIBLE_STRIP_COLORS: ["blue", "white", "yellow", "red", "green"],
-		HOLD_BUFFER_TIME: 500, // time in ms between initial button press and considering the press as a hold action
+		HOLD_BUFFER_TIME: 2000, // time in ms between initial button press and considering the press as a hold action
 
 		buttonColor: "none",
 		buttonLabel: "none",
@@ -498,7 +498,7 @@ var ButtonModule = Module.extend({
 	 */
 	onButtonPress: function() {
 		var d = new Date();
-		set({pressStartTime: d.getTime()});
+		this.set({pressStartTime: d.getTime()});
 	},
 
 	/**
@@ -508,7 +508,7 @@ var ButtonModule = Module.extend({
 	 * @param {String} color - the color that the indicator should be
 	 */
 	onButtonHold: function(color) {
-		set({stripColor: color});
+		this.set({stripColor: color});
 	},
 
 	/**
@@ -542,48 +542,78 @@ var ButtonModule = Module.extend({
 	passOrFail: function(numBatteries, litIndicators, countdownTimerValue) {
 		var d = new Date();
 		var timePressed = d.getTime() - this.get("pressStartTime");
+		var passed = false;
 
 		if (this.get("buttonColor") == "blue" && this.get("buttonLabel") == "abort") {
 			if (timePressed > this.get("HOLD_BUFFER_TIME")) {
-				return this.onHeldButtonRelease(countdownTimerValue);
+				passed = this.onHeldButtonRelease(countdownTimerValue);
 			}
 		} else if (numBatteries > 1 && this.get("buttonLabel") == "detonate") {
-			return timePressed < this.get("HOLD_BUFFER_TIME");
+			passed = (timePressed < this.get("HOLD_BUFFER_TIME"));
 		} else if (this.get("buttonColor") == "white" && litIndicators.includes("car")) {
 			if (timePressed > this.get("HOLD_BUFFER_TIME")) {
-				return this.onHeldButtonRelease(countdownTimerValue);
+				passed = this.onHeldButtonRelease(countdownTimerValue);
 			}
 		} else if (numBatteries > 2 && litIndicators.includes("frk")) {
-			return timePressed < this.get("HOLD_BUFFER_TIME");
+			console.log(timePressed);
+			passed = (timePressed < this.get("HOLD_BUFFER_TIME"));
 		} else if (this.get("buttonColor") == "yellow") {
 			if (timePressed > this.get("HOLD_BUFFER_TIME")) {
-				return this.onHeldButtonRelease(countdownTimerValue);
+				passed = this.onHeldButtonRelease(countdownTimerValue);
 			}
 		} else if (this.get("buttonColor") == "red" && this.get("buttonLabel") == "hold") {
-			return timePressed < this.get("HOLD_BUFFER_TIME");
+			return passed = (timePressed < this.get("HOLD_BUFFER_TIME"));
 		} else {
 			if (timePressed > this.get("HOLD_BUFFER_TIME")) {
-				return this.onHeldButtonRelease(countdownTimerValue);
+				passed = this.onHeldButtonRelease(countdownTimerValue);
 			}
 		}
 
-		return false;
+		this.set({passed: passed});
+		return passed;
 	}
 });
 
 var ButtonView = Backbone.View.extend({
-	tagName: 'div',
-	className: 'module buttonModule',
+	tagName: "button",
+	className: "module buttonModule circle-btn",
 	template: _.template($("#buttonTemplate").html()),
 	model: "none",
 
 	initialize: function(attributes) {
 		this.model = attributes.model;
-		this.render();
+		var buttonColor = this.model.get("buttonColor");
+		this.$el.addClass(buttonColor);
+
+		return this.render();
+	},
+
+	events: {
+		"press": "pressAction",
+		"hold": "holdAction",
+		"release": "releaseAction"
 	},
 
 	render: function() {
 		this.$el.html(this.template(this.model.toJSON()));
+		return this.el;
+	},
+
+	pressAction: function(e) {
+		model.onButtonPress();
+		// show that button remains pressed
+	},
+
+	holdAction: function(e) {
+		model.onButtonHold();
+	},
+
+	releaseAction: function(e) {
+		if (model.passOrFail()) {
+			// disarmed button module
+		} else {
+			// failed to disarm button module
+		}
 	}
 });
 

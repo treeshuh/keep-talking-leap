@@ -3,6 +3,11 @@ LEAPSCALE = 0.6;
 SWIPE_THRESH = 100;
 CELL_WIDTH = 300;
 ROTATE_RATE = 2;
+
+var NUM_BATTERIES = 4;
+var LIT_INDICATORS = ["FRK"];
+var moduleManager = new ModuleManager();
+
 var cursor = new Cursor();
 var fingerCursors = [new Cursor(), new Cursor(), new Cursor(), new Cursor(), new Cursor()];
 
@@ -63,12 +68,17 @@ var stopIntersectingModule = function() {
 	$("table tr td").removeClass("active-module");
 }
 
-// TODO: abstract this out to game state.
-var addButtonModule = function(parentSelector, r, c) {
-	b = document.createElement("button");
-	b.innerHTML = "Press ME!";
-	b.className = "circle-btn";
-	$(parentSelector + " " + makeTableFromRC(r, c)).append(b);
+var addButtonModule = function(parentSelector, r, c, situation) {
+	var side = "front";
+
+	if (parentSelector == "#bomb-back") {
+		side = "back"
+	}
+
+	var buttonModel = new ButtonModule({side: side, row: r, column: c}, {situation: situation, numBatteries: NUM_BATTERIES, litIndicators: LIT_INDICATORS});
+	moduleManager.add(buttonModel);
+	var buttonView = new ButtonView({model: buttonModel});
+	$(parentSelector + " " + makeTableFromRC(r, c)).append(buttonView.el.outerHTML);
 }
 
 // TODO: don't hardcode this
@@ -94,12 +104,39 @@ var intersectButton = function(intersectingModule, screenPosition) {
 }
 
 var clickButton = function() { 
+	var done = null;
 	r = activeButton[0];
 	c = activeButton[1];
+	var side = "front";
+
+	if (bombState == 1) {
+		side = "back";
+	}
+
+	var buttonModel = moduleManager.getModuleAt(side, r, c);
+	done = (buttonModel.get("passed") == true || buttonModel.get("passed") == true);
+
+	if (done) {
+		return ;
+	}
+
+	buttonModel.onButtonPress();
+
 	$("table " + makeTableFromRC(r,c) + " button").addClass("active-btn");
 	window.setTimeout(function() {
 		$("table " + makeTableFromRC(r,c) + " button").removeClass("active-btn");
+		passed = buttonModel.passOrFail(NUM_BATTERIES, LIT_INDICATORS, 500);
 	}, 500);
+
+	var buttonColor = buttonModel.get("buttonColor");
+	var passed = (buttonModel.get("passed") == true);
+	$("table " + makeTableFromRC(r,c) + " button").removeClass(buttonColor);
+
+	if (passed) {
+		$("table " + makeTableFromRC(r,c) + " button").addClass("pink");
+	} else {
+		$("table " + makeTableFromRC(r,c) + " button").addClass("purple");
+	}
 }
 
 var addKnobModule = function(parentSelector, r, c) {
@@ -275,8 +312,8 @@ var setUpUI = function() {
 	document.body.append(d2);
 
 	// add modules to layout
-	addButtonModule('#bomb-front', 1, 1);
-	addButtonModule('#bomb-back', 1, 2);
+	addButtonModule('#bomb-front', 1, 1, 6);
+	addButtonModule('#bomb-back', 1, 2, 4);
 	addKnobModule('#bomb-back', 0, 1);
 	addWireModule("#bomb-front", 0, 0, 4);
 	addWireModule("#bomb-back", 1, 1, 3);
