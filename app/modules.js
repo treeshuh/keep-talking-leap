@@ -1,6 +1,9 @@
 /** 
  * How to create and display an external template in html page using backbone.js
  * http://stackoverflow.com/questions/19905406/how-to-create-and-display-external-template-in-html-page-using-backbone-js
+ *
+ * How to call overwritten methods of parent classes in backbone.js
+ * https://makandracards.com/makandra/22121-how-to-call-overwritten-methods-of-parent-classes-in-backbone-js
  */
 
 var GameManager = Backbone.Model.extend({
@@ -93,7 +96,8 @@ var WiresModule = Module.extend({
 	 * @param {int} serialNumber - the bomb's serial number
 	 */
 	initialize: function(side, row, column, numWires, situation, serialNumber) {
-		Backbone.Model.Module.prototype.setModuleLocation.call(this, side, row, column);
+		//Backbone.Model.Module.prototype.setModuleLocation.call(this, side, row, column);
+		this.constructor.__super__.initialize.apply(this, side, row, column);
 
 		if (numWires == 0) {
 			numWires = _.random(this.get("MIN_NUM_WIRES"), this.get("MAX_NUM_WIRES"));
@@ -448,7 +452,8 @@ var ButtonModule = Module.extend({
 	 * @param {List<String>} litIndicators - a list of indicator labels on the bomb that are lit
 	 */
 	initialize: function(side, row, column, situation, numBatteries, litIndicators) {
-		Backbone.Model.Module.prototype.setModuleLocation.call(this, side, row, column);
+		this.constructor.__super__.initialize.apply(this, side, row, column);
+		//Backbone.Model.Module.prototype.setModuleLocation.call(this, side, row, column);
 
 		if (situation == 0) {
 			situation = _.random(1, 7); 
