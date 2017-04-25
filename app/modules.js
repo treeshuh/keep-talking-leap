@@ -1,11 +1,16 @@
+/** 
+ * How to create and display an external template in html page using backbone.js
+ * http://stackoverflow.com/questions/19905406/how-to-create-and-display-external-template-in-html-page-using-backbone-js
+ */
+
 var GameManager = Backbone.Model.extend({
 	defaults: {
-		maxFails: 3,				// bomb explodes upon this many fails
-		maxTime: 600,				// num milliseconds player starts with to disarm all modules
+		MAX_FAILS: 3,					// bomb explodes upon this many fails
+		MAX_TIME: 600,					// num milliseconds player starts with to disarm all modules
 
-		numModules: 0,				// num modules in bomb
-		numDisarmedModules: 0,		// num modules that have been disarmed
-		numFailedModules: 0			// num modules that player failed at disarming
+		NUM_MODULES: 0,					// num modules in bomb
+		NUM_DISARMED_MODULES: 0,		// num modules that have been disarmed
+		NUM_FAILED_MODULES: 0			// num modules that player failed at disarming
 	},
 
 	/**
@@ -15,9 +20,9 @@ var GameManager = Backbone.Model.extend({
 	 *		2: did the player win?
 	 */
 	endGame: function() {
-		if (numFailedModules == maxFails) {		// TODO: or if time runs out
+		if (this.get("NUM_FAILED_MODULES") == this.get("MAX_FAILS")) {		// TODO: or if time runs out
 			return [true, false];
-		} else if (numModules == numDisarmedModules + numFailedModules) {
+		} else if (this.get("NUM_MODULES") == this.get("NUM_DISARMED_MODULES") + this.get("NUM_FAILED_MODULES")) {
 			return [true, true];
 		} else {
 			return [false, false];
@@ -26,7 +31,7 @@ var GameManager = Backbone.Model.extend({
 });
 
 var ModuleManager = Backbone.Collection.extend({
-	model: module,
+	model: Module,
 
 	/**
 	 * Get the module at the specified location.
@@ -57,6 +62,7 @@ var Module = Backbone.Model.extend({
 
 	/**
 	 * Tell the module its location is at the specified location.
+	 	* Call when initializing a module to place it in the bomb.
 	 * @param {String} side - one of front or back
 	 * @param {int} row - top row is 0, bottom row is 1
 	 * @param {int} column - from left to right, columns are numbered 0 to 2
@@ -78,14 +84,19 @@ var WiresModule = Module.extend({
 	/**
 	 * Set wires module parameters according to a specified situation in the manual based on number of wires and sub-situation.
 	 * Call when setting up bomb modules.
+	 * @param {String} side - one of front or back
+	 * @param {int} row - top row is 0, bottom row is 1
+	 * @param {int} column - from left to right, columns are numbered 0 to 2
 	 * @param {int} numWires - the number of wire in the module. 0 means randomly choose a valid number of wires
 	 * @param {int} situation - the number corresponding to the sub-situation given the number of wires stated in the manual. 
 	 * 		0 means randomly choose a valid situation given number of wires. If situation is invalid given bomb parameters, default to else case.
 	 * @param {int} serialNumber - the bomb's serial number
 	 */
-	initialize: function(numWires, situation, serialNumber) {
+	initialize: function(side, row, column, numWires, situation, serialNumber) {
+		Backbone.Model.Module.prototype.setModuleLocation.call(this, side, row, column);
+
 		if (numWires == 0) {
-			numWires = _.random(MIN_NUM_WIRES, MAX_NUM_WIRES);
+			numWires = _.random(this.get("MIN_NUM_WIRES"), this.get("MAX_NUM_WIRES"));
 		}
 
 		if (situation == 0) {
@@ -100,21 +111,21 @@ var WiresModule = Module.extend({
 
 		if (numWires == 3) {
 			if (situation == 1) {
-				var possibleColors = _.without(POSSIBLE_WIRE_COLORS, "red");
+				var possibleColors = _.without(this.get("POSSIBLE_WIRE_COLORS"), "red");
 				wireSet = _.sample(possibleColors, numWires);
 			} else if (situation == 2) {
-				wireSet = _.sample(POSSIBLE_WIRE_COLORS, numWires);
+				wireSet = _.sample(this.get("POSSIBLE_WIRE_COLORS"), numWires);
 				wireSet[2] = "white";
 			} else if (situation == 3) {
 				randomWireColorIndex = _.random(0, numWires - 1);
 				wireSet = ["blue", "blue", "blue"];
-				wireSet[randomWireColorIndex] = _.sample(POSSIBLE_WIRE_COLORS);
+				wireSet[randomWireColorIndex] = _.sample(this.get("POSSIBLE_WIRE_COLORS"));
 			} else {
-				var possibleColors = POSSIBLE_WIRE_COLORS;
+				var possibleColors = this.get("POSSIBLE_WIRE_COLORS");
 				var possibleBlueWireIndex = _.random(0, numWires - 1);
 				var redWireIndex = _.random(0, numWires - 1);
 
-				for (int i=0; i<numWires; ++i) {
+				for (i=0; i<numWires; ++i) {
 					if (i == redWireIndex) {
 						wireSet.push("red");
 					} else {
@@ -132,10 +143,10 @@ var WiresModule = Module.extend({
 			}
 		} else if (numWires == 4) {
 			if (situation == 1 && serialNumber % 2 == 1) {
-				wireSet = _.sample(POSSIBLE_WIRE_COLORS, numWires);
+				wireSet = _.sample(this.get("POSSIBLE_WIRE_COLORS"), numWires);
 
 				if (!wireSet.includes("red")) {
-					wireSet = _.sample(POSSIBLE_WIRE_COLORS, numWires);
+					wireSet = _.sample(this.get("POSSIBLE_WIRE_COLORS"), numWires);
 					var redWireIndex = _.random(0, numWires - 1);
 					wireSet[redWireIndex] = "red";
 				}
@@ -145,10 +156,10 @@ var WiresModule = Module.extend({
 					wireSet[redWireIndex] = "red";
 				}
 			} else if (situation == 2) {
-				wireSet = _.sample(_.without(POSSIBLE_WIRE_COLORS, "red"), numWires - 1);
+				wireSet = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red"), numWires - 1);
 				wireSet.push("yellow");
 			} else if (situation == 3) {
-				wireSet = _.sample(_.without(POSSIBLE_WIRE_COLORS, "blue"), numWires);
+				wireSet = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "blue"), numWires);
 				var blueWireIndex = _.random(0, numWires - 1);
 				wireSet[blueWireIndex] = "blue";
 			} else if (situation == 4) {
@@ -156,7 +167,7 @@ var WiresModule = Module.extend({
 				wireSet = ["yellow", "yellow", "yellow", "yellow"];
 
 				if (numYellowWires < numWires) {
-					var nonYellowWires = _.sample(_.without(POSSIBLE_WIRE_COLORS, "yellow"), numWires - numYellowWires);
+					var nonYellowWires = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "yellow"), numWires - numYellowWires);
 					var firstNonYellowWireIndex = _.random(0, numWires - 1);
 					wireSet[firstNonYellowWireIndex] = nonYellowWires[0];
 
@@ -180,15 +191,15 @@ var WiresModule = Module.extend({
 				}
 
 				var numOtherWireColors = numWires - numRedWires - numYellowWires;
-				var numBlueWires = _.sample(_.without(_.range(0 numOtherWireColors + 1), 1));
+				var numBlueWires = _.sample(_.without(_.range(0, numOtherWireColors + 1), 1));
 				var selectedWireColors = [];
 				numOtherWireColors -= numBlueWires;
 				
 				if (numOtherWireColors >= 1) {
-					selectedWireColors = _.sample(_.without(POSSIBLE_WIRE_COLORS, "red", "yellow", "blue"), numOtherWireColors);
+					selectedWireColors = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red", "yellow", "blue"), numOtherWireColors);
 				}
 
-				for (int i=0; i<numWires; ++i) {
+				for (i=0; i<numWires; ++i) {
 					if (i < numRedWires) {
 						selectedWireColors.push("red");
 					}
@@ -217,20 +228,20 @@ var WiresModule = Module.extend({
 			}
 		} else if (numWires == 5) {
 			if (situation == 1 & serialNumber % 2 == 1) {
-				wireSet = _.sample(POSSIBLE_WIRE_COLORS, numWires - 1);
+				wireSet = _.sample(this.get("POSSIBLE_WIRE_COLORS"), numWires - 1);
 				wireSet.push("black");
 			} else if (situation == 2) {
-				wireSet = _.sample(_.without(POSSIBLE_WIRE_COLORS, "red", "yellow"), numWires);
+				wireSet = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red", "yellow"), numWires);
 				var numYellowWires = _.random(2, numWires - 1);
 				var randomizedIndices = _.shuffle(_.range(0, numWires));
 
-				for (int i=0; i<numYellowWires; ++i) {
+				for (i=0; i<numYellowWires; ++i) {
 					wireSet[randomizedIndices[i]] = "yellow";
 				}
 
 				wireSet[randomizedIndices[numYellowWires]] = "red";
 			} else if (situation == 3) {
-				wireSet = _.sample(_.without(POSSIBLE_WIRE_COLORS, "black"), numWires);
+				wireSet = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "black"), numWires);
 			} else {
 				var numBlackWires = _.random(1, numWires);
 
@@ -251,10 +262,10 @@ var WiresModule = Module.extend({
 				var selectedWireColors = [];
 				
 				if (numOtherWireColors >= 1) {
-					selectedWireColors = _.sample(_.without(POSSIBLE_WIRE_COLORS, "red", "yellow", "black"), numOtherWireColors);
+					selectedWireColors = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red", "yellow", "black"), numOtherWireColors);
 				}
 
-				for (int i=0; i<numWires; ++i) {
+				for (i=0; i<numWires; ++i) {
 					if (i < numRedWires) {
 						selectedWireColors.push("red");
 					}
@@ -285,21 +296,21 @@ var WiresModule = Module.extend({
 			numWires = 6;
 
 			if (situation == 1 && serialNumber % 2 == 1) {
-				wireSet = _.sample(_.without(POSSIBLE_WIRE_COLORS, "yellow"), numWires);
+				wireSet = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "yellow"), numWires);
 			} else if (situation == 2) {
-				wireSet = _.sample(_.without(POSSIBLE_WIRE_COLORS, "yellow", "white"), numWires);
+				wireSet = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "yellow", "white"), numWires);
 				var yellowWireIndex = _.random(0, numWires - 1);
 				wireSet[yellowWireIndex] = "yellow";
 				var numWhiteWires = _.random(2, numWires - 1);
 				var validIndices = _.without(_.range(0, numWires), yellowWireIndex);
 
-				for (int i=0; i<numWhiteWires) {
+				for (i=0; i<numWhiteWires; ++i) {
 					var whiteWireIndex = _.sample(validIndices);
 					wireSet[whiteWireIndex] = "white";
 					validIndices.splice(indexOf(whiteWireIndex), 1);
 				}
 			} else if (situation == 3) {
-				wireSet = _.sample(_.without(POSSIBLE_WIRE_COLORS, "red"), numWires);
+				wireSet = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red"), numWires);
 			} else {
 				var numRedWires = _.random(1, numWires);
 				var numOtherWireColors = numWires - numRedWires;
@@ -320,10 +331,10 @@ var WiresModule = Module.extend({
 				var selectedWireColors = [];
 				
 				if (numOtherWireColors >= 1) {
-					selectedWireColors = _.sample(_.without(POSSIBLE_WIRE_COLORS, "red", "yellow", "white"), numOtherWireColors);
+					selectedWireColors = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red", "yellow", "white"), numOtherWireColors);
 				}
 
-				for (int i=0; i<numWires; ++i) {
+				for (i=0; i<numWires; ++i) {
 					if (i < numRedWires) {
 						selectedWireColors.push("red");
 					}
@@ -351,51 +362,64 @@ var WiresModule = Module.extend({
 	 * @return {bool} whether the player successfully disarms the module
 	 */
 	passOrFail: function(wirePosition) {
-		var numWires = get(wireSet).length;
+		var numWires = this.get(wires).length;
 
 		if (numWires == 3) {
-			if (!get(wireSet).includes("red")) {
+			if (!this.get(wires).includes("red")) {
 				return wirePosition == 1;
-			} else if (_.last(get(wireSet)) == "white") {
+			} else if (_.last(this.get(wires)) == "white") {
 				return wirePosition == numWires - 1;
-			} else if (get(wireSet).indexOf("blue") != get(wireSet).lastIndexOf("blue")) {
-				return wirePosition == get(wireSet).lastIndexOf("blue");
+			} else if (this.get(wires).indexOf("blue") != this.get(wires).lastIndexOf("blue")) {
+				return wirePosition == this.get(wires).lastIndexOf("blue");
 			} else {
 				return wirePosition == numWires - 1;
 			}
 		} else if (numWires == 4) {
-			if (get(wireSet).indexOf("red") != get(wireSet).lastIndexOf("red") && serialNumber % 2 == 1) {
-				return wirePosition == get(wireSet.lastIndexOf("red"));
-			} else if (_.last(get(wireSet)) == "yellow" && !get(wireSet).includes("red")) {
+			if (this.get(wires).indexOf("red") != this.get(wires).lastIndexOf("red") && serialNumber % 2 == 1) {
+				return wirePosition == this.get(wires).lastIndexOf("red");
+			} else if (_.last(this.get(wires)) == "yellow" && !this.get(wires).includes("red")) {
 				return wirePosition == 0;
-			} else if (get(wireSet).indexOf("blue") == get(wireSet).lastIndexOf("blue") && get(wireSet).includes("blue")) {
+			} else if (this.get(wires).indexOf("blue") == this.get(wires).lastIndexOf("blue") && this.get(wires).includes("blue")) {
 				return wirePosition == 0;
-			} else if (get(wireSet).indexOf("yellow") != get(wireSet).lastIndexOf("yellow")) {
+			} else if (this.get(wires).indexOf("yellow") != this.get(wires).lastIndexOf("yellow")) {
 				return wirePosition == numWires - 1;
 			} else {
 				return wirePosition == 1;
 			}
 		} else if (numWires == 5) {
-			if (_.last(get(wireSet)) == "black" && serialNumber % 2 == 1) {
+			if (_.last(this.get(wires)) == "black" && serialNumber % 2 == 1) {
 				return wirePosition == 3;
-			} else if (get(wireSet).indexOf("red") == get(wireSet).lastIndexOf("red") && get(wireSet).includes("red") && get(wireSet).indexOf("yellow") != get(wireSet).lastIndexOf("yellow")) {
+			} else if (this.get(wires).indexOf("red") == this.get(wires).lastIndexOf("red") && this.get(wires).includes("red") && this.get(wires).indexOf("yellow") != this.get(wires).lastIndexOf("yellow")) {
 				return wirePosition == 0;
-			} else if (!get(wireSet).includes("black")) {
+			} else if (!this.get(wires).includes("black")) {
 				return wirePosition == 1;
 			} else {
 				return wirePosition == 0;
 			}
 		} else {
-			if (!get(wireSet).includes("yellow") && serialNumber % 2 == 1) {
+			if (!this.get(wires).includes("yellow") && serialNumber % 2 == 1) {
 				return wirePosition == 2;
-			} else if (get(wireSet).indexOf("yellow") == get(wireSet).lastIndexOf("yellow") && get(wireSet).includes("yellow") && get(wireSet).indexOf("white") != get(wireSet).lastIndexOf("white")) {
+			} else if (this.get(wires).indexOf("yellow") == this.get(wires).lastIndexOf("yellow") && this.get(wires).includes("yellow") && this.get(wires).indexOf("white") != this.get(wires).lastIndexOf("white")) {
 				return wirePosition == 3;
-			} else if (!get(wireSet).includes("red")) {
-				return wirePosition == numWires = 1;
+			} else if (!this.get(wires).includes("red")) {
+				return wirePosition == numWires - 1;
 			} else {
 				return wirePosition == 3;
 			}
 		}
+	}
+});
+
+var WiresView = Backbone.View.extend({
+	tagName: 'div',
+	className: 'wireModule',
+
+	initialize: function() {
+		this.render();
+	},
+
+	render: function() {
+
 	}
 });
 
@@ -415,12 +439,17 @@ var ButtonModule = Module.extend({
 	/**
 	 * Set button module parameters according to a specified situation in the manual.
 	 * Call when setting up bomb modules.
+	 * @param {String} side - one of front or back
+	 * @param {int} row - top row is 0, bottom row is 1
+	 * @param {int} column - from left to right, columns are numbered 0 to 2
 	 * @param {int} situation - the number corresponding to the button parameters stated in the manual. 
 	 * 		0 means randomly choose a situation. If situation is invalid given bomb parameters, default to else case.
 	 * @param {int} numBatteries - the number of batteries on the bomb
 	 * @param {List<String>} litIndicators - a list of indicator labels on the bomb that are lit
 	 */
-	initialize: function(situation, numBatteries, litIndicators) {
+	initialize: function(side, row, column, situation, numBatteries, litIndicators) {
+		Backbone.Model.Module.prototype.setModuleLocation.call(this, side, row, column);
+
 		if (situation == 0) {
 			situation = _.random(1, 7); 
 		}
@@ -438,30 +467,30 @@ var ButtonModule = Module.extend({
 		} else if (situation == 6) {
 			set({buttonColor: "red", buttonLabel: "hold"});
 		} else {
-			set({buttonColor: _.sample(POSSIBLE_BUTTON_COLORS)});
-			var possibleLabels = POSSIBLE_BUTTON_LABELS;
+			set({buttonColor: _.sample(this.get("POSSIBLE_BUTTON_COLORS"))});
+			var possibleLabels = this.get("POSSIBLE_BUTTON_LABELS");
 
 			if (get(buttonColor) == "blue") {
-				possibleLabels = _.without(POSSIBLE_BUTTON_LABELS, "abort");
+				possibleLabels = _.without(this.get("POSSIBLE_BUTTON_LABELS"), "abort");
 			} 
 
 			if (numBatteries > 1) {
-				possibleLabels = _.without(POSSIBLE_BUTTON_LABELS, "detonate");
+				possibleLabels = _.without(this.get("POSSIBLE_BUTTON_LABELS"), "detonate");
 			}
 
 			if (get(buttonColor) == "red") {
-				possibleLabels = _.without(POSSIBLE_BUTTON_LABELS, "hold");
+				possibleLabels = _.without(this.get("POSSIBLE_BUTTON_LABELS"), "hold");
 			}
 
 			set({buttonLabel: _.sample(possibleLabels)});
 		}
 
 		if (get(buttonColor) == "none") {
-			set({buttonColor: _.sample(POSSIBLE_BUTTON_COLORS)});
+			set({buttonColor: _.sample(this.get("POSSIBLE_BUTTON_COLORS"))});
 		}
 
 		if (get(buttonLabel) == "none") {
-			set({buttonLabel: _.sample(POSSIBLE_BUTTON_LABELS)});
+			set({buttonLabel: _.sample(this.get("POSSIBLE_BUTTON_LABELS"))});
 		}
 	},
 
@@ -471,7 +500,7 @@ var ButtonModule = Module.extend({
 	 */
 	onButtonPress: function() {
 		var d = new Date();
-		set({pressStartTime, d.getTime()});
+		set({pressStartTime: d.getTime()});
 	},
 
 	/**
@@ -491,11 +520,11 @@ var ButtonModule = Module.extend({
 	 * @return {bool} whether the player successfully disarms the bomb
 	 */
 	onHeldButtonRelease: function(countdownTimerValue) {
-		if (get(stripColor) == "blue" && countdownTimerValue.contains("4")) {
+		if (this.get("stripColor") == "blue" && countdownTimerValue.contains("4")) {
 			return true;
-		} else if (get(stripColor) == "white" && countdownTimerValue.contains("1")) {
+		} else if (this.get("stripColor") == "white" && countdownTimerValue.contains("1")) {
 			return true;
-		} else if (get(stripColor) == "yellow" && countdownTimerValue.contains("5")) {
+		} else if (this.get("stripColor") == "yellow" && countdownTimerValue.contains("5")) {
 			return true;
 		} else if (countdownTimerValue.contains("1")) {
 			return true;
@@ -514,33 +543,49 @@ var ButtonModule = Module.extend({
 	 */
 	passOrFail: function(numBatteries, litIndicators, countdownTimerValue) {
 		var d = new Date();
-		var timePressed = d.getTime() - get(pressStartTime);
+		var timePressed = d.getTime() - this.get("pressStartTime");
 
-		if (get(color) == "blue" && get(buttonLabel) == "abort") {
-			if (timePressed > get(HOLD_BUFFER_TIME)) {
-				return onHeldButtonRelease(countdownTimerValue);
+		if (this.get("buttonColor") == "blue" && this.get("buttonLabel") == "abort") {
+			if (timePressed > this.get("HOLD_BUFFER_TIME")) {
+				return this.onHeldButtonRelease(countdownTimerValue);
 			}
-		} else if (numBatteries > 1 && get(buttonLabel) == "detonate") {
-			return timePressed < get(HOLD_BUFFER_TIME);
-		} else if (get(color) == "white" && litIndicators.includes("car")) {
-			if (timePressed > get(HOLD_BUFFER_TIME)) {
-				return onHeldButtonRelease(countdownTimerValue);
+		} else if (numBatteries > 1 && this.get("buttonLabel") == "detonate") {
+			return timePressed < this.get("HOLD_BUFFER_TIME");
+		} else if (this.get("buttonColor") == "white" && litIndicators.includes("car")) {
+			if (timePressed > this.get("HOLD_BUFFER_TIME")) {
+				return this.onHeldButtonRelease(countdownTimerValue);
 			}
 		} else if (numBatteries > 2 && litIndicators.includes("frk")) {
-			return timePressed < get(HOLD_BUFFER_TIME);
-		} else if (get(color) == "yellow") {
-			if (timePressed > get(HOLD_BUFFER_TIME)) {
-				return onHeldButtonRelease(countdownTimerValue);
+			return timePressed < this.get("HOLD_BUFFER_TIME");
+		} else if (this.get("buttonColor") == "yellow") {
+			if (timePressed > this.get("HOLD_BUFFER_TIME")) {
+				return this.onHeldButtonRelease(countdownTimerValue);
 			}
-		} else if (get(color) == "red" && get(buttonLabel) == "hold") {
-			return timePressed < get(HOLD_BUFFER_TIME);
+		} else if (this.get("buttonColor") == "red" && this.get("buttonLabel") == "hold") {
+			return timePressed < this.get("HOLD_BUFFER_TIME");
 		} else {
-			if (timePressed > get(HOLD_BUFFER_TIME)) {
-				return onHeldButtonRelease(countdownTimerValue);
+			if (timePressed > this.get("HOLD_BUFFER_TIME")) {
+				return this.onHeldButtonRelease(countdownTimerValue);
 			}
 		}
 
 		return false;
+	}
+});
+
+var ButtonView = Backbone.View.extend({
+	tagName: 'div',
+	className: 'buttonModule',
+
+	initialize: function() {
+		this.render();
+	},
+
+	render: function() {
+		$.get('/templates/view_templates.html', function (data) {
+            template = _.template(data, {  });
+            this.$el.html(template);  
+        }, 'html');
 	}
 });
 
