@@ -1,9 +1,6 @@
 /** 
  * How to create and display an external template in html page using backbone.js
  * http://stackoverflow.com/questions/19905406/how-to-create-and-display-external-template-in-html-page-using-backbone-js
- *
- * How to call overwritten methods of parent classes in backbone.js
- * https://makandracards.com/makandra/22121-how-to-call-overwritten-methods-of-parent-classes-in-backbone-js
  */
 
 var GameManager = Backbone.Model.extend({
@@ -33,6 +30,17 @@ var GameManager = Backbone.Model.extend({
 	}
 });
 
+var Module = Backbone.Model.extend({
+	defaults: {
+		side: null,
+		row: null,
+		column: null,
+		passed: false,
+		failed: false
+	},
+});
+
+
 var ModuleManager = Backbone.Collection.extend({
 	model: Module,
 
@@ -44,34 +52,13 @@ var ModuleManager = Backbone.Collection.extend({
 	 * @return {module} the module at the specified location, or null if there is no module at that location
 	 */
 	getModuleAt: function(side, row, column) {
-		var moduleList =  this.where({side: side, row: row, column: column });
+		var moduleList =  this.where({ side: side, row: row, column: column });
 
 		if (moduleList.length > 1) {
 			return moduleList[0];
 		} else {
 			return null;
 		}
-	}
-});
-
-var Module = Backbone.Model.extend({
-	defaults: {
-		side: null,
-		row: null,
-		column: null,
-		passed: false,
-		failed: false
-	},
-
-	/**
-	 * Tell the module its location is at the specified location.
-	 	* Call when initializing a module to place it in the bomb.
-	 * @param {String} side - one of front or back
-	 * @param {int} row - top row is 0, bottom row is 1
-	 * @param {int} column - from left to right, columns are numbered 0 to 2
-	 */
-	setModuleLocation: function(side, row, column) {
-			set({side: side, row: row, column: column});
 	}
 });
 
@@ -87,17 +74,21 @@ var WiresModule = Module.extend({
 	/**
 	 * Set wires module parameters according to a specified situation in the manual based on number of wires and sub-situation.
 	 * Call when setting up bomb modules.
-	 * @param {String} side - one of front or back
-	 * @param {int} row - top row is 0, bottom row is 1
-	 * @param {int} column - from left to right, columns are numbered 0 to 2
-	 * @param {int} numWires - the number of wire in the module. 0 means randomly choose a valid number of wires
-	 * @param {int} situation - the number corresponding to the sub-situation given the number of wires stated in the manual. 
+	 * @param {String} attributes.side - one of front or back
+	 * @param {int} attributes.row - top row is 0, bottom row is 1
+	 * @param {int} attributes.column - from left to right, columns are numbered 0 to 2
+	 * @param {int} options.numWires - the number of wire in the module. 0 means randomly choose a valid number of wires
+	 * @param {int} options.situation - the number corresponding to the sub-situation given the number of wires stated in the manual. 
 	 * 		0 means randomly choose a valid situation given number of wires. If situation is invalid given bomb parameters, default to else case.
-	 * @param {int} serialNumber - the bomb's serial number
+	 * @param {int} options.serialNumber - the bomb's serial number
 	 */
 	initialize: function(side, row, column, numWires, situation, serialNumber) {
-		//Backbone.Model.Module.prototype.setModuleLocation.call(this, side, row, column);
-		this.constructor.__super__.initialize.apply(this, side, row, column);
+		side = attributes.side;
+		row = attributes.row;
+		column = attributes.column;
+		numWires = options.numWires;
+		situation = options.situation;
+		serialNumber = options.serialNumber;
 
 		if (numWires == 0) {
 			numWires = _.random(this.get("MIN_NUM_WIRES"), this.get("MAX_NUM_WIRES"));
@@ -423,7 +414,10 @@ var WiresView = Backbone.View.extend({
 	},
 
 	render: function() {
-
+		$.get('templates/view_templates.html', function (data) {
+            template = _.template(data, {  });
+            this.$el.html(template);  
+        }, 'html');
 	}
 });
 
@@ -443,39 +437,43 @@ var ButtonModule = Module.extend({
 	/**
 	 * Set button module parameters according to a specified situation in the manual.
 	 * Call when setting up bomb modules.
-	 * @param {String} side - one of front or back
-	 * @param {int} row - top row is 0, bottom row is 1
-	 * @param {int} column - from left to right, columns are numbered 0 to 2
-	 * @param {int} situation - the number corresponding to the button parameters stated in the manual. 
+	 * @param {String} attributes.side - one of front or back
+	 * @param {int} attributes.row - top row is 0, bottom row is 1
+	 * @param {int} attributes.column - from left to right, columns are numbered 0 to 2
+	 * @param {int} options.situation - the number corresponding to the button parameters stated in the manual. 
 	 * 		0 means randomly choose a situation. If situation is invalid given bomb parameters, default to else case.
-	 * @param {int} numBatteries - the number of batteries on the bomb
-	 * @param {List<String>} litIndicators - a list of indicator labels on the bomb that are lit
+	 * @param {int} options.numBatteries - the number of batteries on the bomb
+	 * @param {List<String>} options.litIndicators - a list of indicator labels on the bomb that are lit
 	 */
-	initialize: function(side, row, column, situation, numBatteries, litIndicators) {
-		this.constructor.__super__.initialize.apply(this, side, row, column);
-		//Backbone.Model.Module.prototype.setModuleLocation.call(this, side, row, column);
+	initialize: function(attributes, options) {
+		side = attributes.side;
+		row = attributes.row;
+		column = attributes.column;
+		numBatteries = options.numBatteries;
+		situation = options.situation;
+		litIndicators = options.litIndicators;
 
 		if (situation == 0) {
 			situation = _.random(1, 7); 
 		}
 
 		if (situation == 1) {
-			set({buttonColor: "blue", buttonLabel: "abort"});
+			this.set({buttonColor: "blue", buttonLabel: "abort"});
 		} else if (situation == 2 && numBatteries > 1) {
-			set({buttonLabel: "detonate"});
+			this.set({buttonLabel: "detonate"});
 		} else if (situation == 3 && litIndicators.includes("car")) {
-			set({buttonColor: "white"});
+			this.set({buttonColor: "white"});
 		} else if (situation == 4 && numBatteries > 2 && litIndicators.includes("frk")) {
 			
 		} else if (situation == 5) {
-			set({buttonColor: "yellow"});
+			this.set({buttonColor: "yellow"});
 		} else if (situation == 6) {
-			set({buttonColor: "red", buttonLabel: "hold"});
+			this.set({buttonColor: "red", buttonLabel: "hold"});
 		} else {
-			set({buttonColor: _.sample(this.get("POSSIBLE_BUTTON_COLORS"))});
+			this.set({buttonColor: _.sample(this.get("POSSIBLE_BUTTON_COLORS"))});
 			var possibleLabels = this.get("POSSIBLE_BUTTON_LABELS");
 
-			if (get(buttonColor) == "blue") {
+			if (this.get("buttonColor") == "blue") {
 				possibleLabels = _.without(this.get("POSSIBLE_BUTTON_LABELS"), "abort");
 			} 
 
@@ -483,19 +481,19 @@ var ButtonModule = Module.extend({
 				possibleLabels = _.without(this.get("POSSIBLE_BUTTON_LABELS"), "detonate");
 			}
 
-			if (get(buttonColor) == "red") {
+			if (this.get("buttonColor") == "red") {
 				possibleLabels = _.without(this.get("POSSIBLE_BUTTON_LABELS"), "hold");
 			}
 
-			set({buttonLabel: _.sample(possibleLabels)});
+			this.set({buttonLabel: _.sample(possibleLabels)});
 		}
 
-		if (get(buttonColor) == "none") {
-			set({buttonColor: _.sample(this.get("POSSIBLE_BUTTON_COLORS"))});
+		if (this.get("buttonColor") == "none") {
+			this.set({buttonColor: _.sample(this.get("POSSIBLE_BUTTON_COLORS"))});
 		}
 
-		if (get(buttonLabel) == "none") {
-			set({buttonLabel: _.sample(this.get("POSSIBLE_BUTTON_LABELS"))});
+		if (this.get("buttonLabel") == "none") {
+			this.set({buttonLabel: _.sample(this.get("POSSIBLE_BUTTON_LABELS"))});
 		}
 	},
 
@@ -580,15 +578,15 @@ var ButtonModule = Module.extend({
 
 var ButtonView = Backbone.View.extend({
 	tagName: 'div',
-	className: 'buttonModule',
+	className: 'module buttonModule',
 
 	initialize: function() {
 		this.render();
 	},
 
 	render: function() {
-		$.get('/templates/view_templates.html', function (data) {
-            template = _.template(data, {  });
+		$.get('templates/view_templates.html', function () {
+            template = _.template("#buttonTemplate");
             this.$el.html(template);  
         }, 'html');
 	}
