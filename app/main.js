@@ -2,11 +2,14 @@ $(document).on('ready', function() {
 LEAPSCALE = 0.6;
 SWIPE_THRESH = 100;
 CELL_WIDTH = 300;
-ROTATE_RATE = 2;
+ROTATE_RATE = 1;
 
 var NUM_BATTERIES = 4;
 var LIT_INDICATORS = ["FRK"];
 var moduleManager = new ModuleManager();
+
+INITIAL_ROTATE = 268;
+ROTATE_LOCK_ANGLE = 31.01;
 
 var cursor = new Cursor();
 var fingerCursors = [new Cursor(), new Cursor(), new Cursor(), new Cursor(), new Cursor()];
@@ -38,7 +41,11 @@ var createTable = function(rows, cols) {
 }
 
 var findIntersectingModule = function(screenPosition) {
-	tableOrigin = $("table").offset();
+	if (bombState == 0) {
+		var tableOrigin = $("#bomb-front").offset();
+	} else {
+		var tableOrigin = $("#bomb-back").offset();
+	}
 	rows = $("table tr").length;
 	cols = $("table tr td").length;
 
@@ -140,12 +147,21 @@ var clickButton = function() {
 }
 
 var addKnobModule = function(parentSelector, r, c) {
-	d = document.createElement("div");
-	k = document.createElement("img");
-	k.src = "./images/knob.jpg";
+	var d = document.createElement("div");
+	var n = document.createElement("div");
+	n.className = "knob-text";
+	d.append(n);
+	var a = document.createElement("img");
+	a.src = "./images/arrow.png";
+	a.className = "knob-arrow";
+	d.append(a); 
+	var k = document.createElement("img");
+	k.src = "./images/dial.jpg";
 	k.className = "knob-img";
 	d.appendChild(k);
+
 	$(parentSelector + " " + makeTableFromRC(r, c)).append(d);
+	$("table " + makeTableFromRC(r,c) + " .knob-img").css({"transform": 'rotate(' + INITIAL_ROTATE + 'deg)'} )
 }
 
 
@@ -171,19 +187,35 @@ var intersectKnob = function(intersectingModule, screenPosition) {
 	}
 }
 
-var rotateKnob = function() {
+var knobRotationToValue = function(rotation) {
+	var value = Math.floor( ((rotation-INITIAL_ROTATE+720) % 360) / ROTATE_LOCK_ANGLE) + 1;
+	if (value >= 1 && value <= 9) {
+		return value;
+	} else if (value == 10) {
+		return 0;
+	} else {
+		return "";
+	}
+}
+
+var rotateKnob = function(clockwise) {
 	r = activeKnob[0];
 	c = activeKnob[1];
 	//http://stackoverflow.com/questions/8270612/get-element-moz-transformrotate-value-in-jquery
-	matrix = $("table " + makeTableFromRC(r,c) + " img").css("transform");
+	matrix = $("table " + makeTableFromRC(r,c) + " .knob-img").css("transform");
 	if(typeof matrix === 'string' && matrix !== 'none') {
         var values = matrix.split('(')[1].split(')')[0].split(',');
         var a = values[0];
         var b = values[1];
         var rotation = Math.round(Math.atan2(b, a) * (180/Math.PI));
     } else { var rotation = 0; }
-	rotation += ROTATE_RATE;
-	rotation = $("table " + makeTableFromRC(r,c) + " img").css({"transform": 'rotate(' + rotation+ 'deg)'} );	
+    if (clockwise) {
+    	rotation += ROTATE_RATE;
+    } else {
+    	rotation -= ROTATE_RATE;
+    }
+    $("table " + makeTableFromRC(r,c) + " .knob-text").text(knobRotationToValue(rotation));
+	rotation = $("table " + makeTableFromRC(r,c) + " .knob-img").css({"transform": 'rotate(' + rotation+ 'deg)'} );	
 }
 
 var createWireID = function(r, c, numWire) {
@@ -366,7 +398,7 @@ var cutReset = false;
 
 Leap.loop({hand: function(hand) {
     var handPosition = hand.screenPosition();
-    var cursorPosition = [handPosition[0], handPosition[1]+300];
+    var cursorPosition = [handPosition[0]-100, handPosition[1]+300];
 
     intersectingModule = findIntersectingModule(cursorPosition);
     if (intersectingModule) {
@@ -384,7 +416,7 @@ Leap.loop({hand: function(hand) {
     				cutting = false;
     				cancelCut();
     			}
-    			if ((currentFingerDist <= 30 || (startDist-currentFingerDist)>7)  && activeWire) {
+    			if ((startDist-currentFingerDist)>7  && activeWire) {
     				console.log("cut");
     				cutting = false;
     				cutWire();
@@ -429,7 +461,17 @@ Leap.loop({hand: function(hand) {
 		        case "circle":
 		        	if (activeKnob) {
 		            	console.log("Circle Gesture");
-		            	rotateKnob();		        		
+		            	// https://developer.leapmotion.com/documentation/javascript/api/Leap.CircleGesture.html
+		            	var clockwise = false;
+						var pointableID = gesture.pointableIds[0];
+						var direction = frame.pointable(pointableID).direction;
+						var dotProduct = Leap.vec3.dot(direction, gesture.normal);
+
+						if (dotProduct  >  0) {
+							clockwise = true;
+						}
+
+		            	rotateKnob(clockwise);		        		
 		        	}
 		            break;
 		        case "keyTap":
