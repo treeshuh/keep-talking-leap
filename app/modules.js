@@ -1,3 +1,8 @@
+/** 
+ * How to create and display an external template in html page using backbone.js
+ * http://stackoverflow.com/questions/19905406/how-to-create-and-display-external-template-in-html-page-using-backbone-js
+ */
+
 var GameManager = Backbone.Model.extend({
 	defaults: {
 		MAX_FAILS: 3,					// bomb explodes upon this many fails
@@ -26,7 +31,7 @@ var GameManager = Backbone.Model.extend({
 });
 
 var ModuleManager = Backbone.Collection.extend({
-	model: module,
+	model: Module,
 
 	/**
 	 * Get the module at the specified location.
@@ -57,6 +62,7 @@ var Module = Backbone.Model.extend({
 
 	/**
 	 * Tell the module its location is at the specified location.
+	 	* Call when initializing a module to place it in the bomb.
 	 * @param {String} side - one of front or back
 	 * @param {int} row - top row is 0, bottom row is 1
 	 * @param {int} column - from left to right, columns are numbered 0 to 2
@@ -119,7 +125,7 @@ var WiresModule = Module.extend({
 				var possibleBlueWireIndex = _.random(0, numWires - 1);
 				var redWireIndex = _.random(0, numWires - 1);
 
-				for (int i=0; i<numWires; ++i) {
+				for (i=0; i<numWires; ++i) {
 					if (i == redWireIndex) {
 						wireSet.push("red");
 					} else {
@@ -185,7 +191,7 @@ var WiresModule = Module.extend({
 				}
 
 				var numOtherWireColors = numWires - numRedWires - numYellowWires;
-				var numBlueWires = _.sample(_.without(_.range(0 numOtherWireColors + 1), 1));
+				var numBlueWires = _.sample(_.without(_.range(0, numOtherWireColors + 1), 1));
 				var selectedWireColors = [];
 				numOtherWireColors -= numBlueWires;
 				
@@ -193,7 +199,7 @@ var WiresModule = Module.extend({
 					selectedWireColors = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red", "yellow", "blue"), numOtherWireColors);
 				}
 
-				for (int i=0; i<numWires; ++i) {
+				for (i=0; i<numWires; ++i) {
 					if (i < numRedWires) {
 						selectedWireColors.push("red");
 					}
@@ -229,7 +235,7 @@ var WiresModule = Module.extend({
 				var numYellowWires = _.random(2, numWires - 1);
 				var randomizedIndices = _.shuffle(_.range(0, numWires));
 
-				for (int i=0; i<numYellowWires; ++i) {
+				for (i=0; i<numYellowWires; ++i) {
 					wireSet[randomizedIndices[i]] = "yellow";
 				}
 
@@ -259,7 +265,7 @@ var WiresModule = Module.extend({
 					selectedWireColors = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red", "yellow", "black"), numOtherWireColors);
 				}
 
-				for (int i=0; i<numWires; ++i) {
+				for (i=0; i<numWires; ++i) {
 					if (i < numRedWires) {
 						selectedWireColors.push("red");
 					}
@@ -298,7 +304,7 @@ var WiresModule = Module.extend({
 				var numWhiteWires = _.random(2, numWires - 1);
 				var validIndices = _.without(_.range(0, numWires), yellowWireIndex);
 
-				for (int i=0; i<numWhiteWires) {
+				for (i=0; i<numWhiteWires; ++i) {
 					var whiteWireIndex = _.sample(validIndices);
 					wireSet[whiteWireIndex] = "white";
 					validIndices.splice(indexOf(whiteWireIndex), 1);
@@ -328,7 +334,7 @@ var WiresModule = Module.extend({
 					selectedWireColors = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red", "yellow", "white"), numOtherWireColors);
 				}
 
-				for (int i=0; i<numWires; ++i) {
+				for (i=0; i<numWires; ++i) {
 					if (i < numRedWires) {
 						selectedWireColors.push("red");
 					}
@@ -396,7 +402,7 @@ var WiresModule = Module.extend({
 			} else if (this.get(wires).indexOf("yellow") == this.get(wires).lastIndexOf("yellow") && this.get(wires).includes("yellow") && this.get(wires).indexOf("white") != this.get(wires).lastIndexOf("white")) {
 				return wirePosition == 3;
 			} else if (!this.get(wires).includes("red")) {
-				return wirePosition == numWires = 1;
+				return wirePosition == numWires - 1;
 			} else {
 				return wirePosition == 3;
 			}
@@ -410,6 +416,10 @@ var WiresView = Backbone.View.extend({
 
 	initialize: function() {
 		this.render();
+	},
+
+	render: function() {
+
 	}
 });
 
@@ -439,7 +449,6 @@ var ButtonModule = Module.extend({
 	 */
 	initialize: function(side, row, column, situation, numBatteries, litIndicators) {
 		Backbone.Model.Module.prototype.setModuleLocation.call(this, side, row, column);
-
 
 		if (situation == 0) {
 			situation = _.random(1, 7); 
@@ -491,7 +500,7 @@ var ButtonModule = Module.extend({
 	 */
 	onButtonPress: function() {
 		var d = new Date();
-		set({pressStartTime, d.getTime()});
+		set({pressStartTime: d.getTime()});
 	},
 
 	/**
@@ -561,6 +570,22 @@ var ButtonModule = Module.extend({
 		}
 
 		return false;
+	}
+});
+
+var ButtonView = Backbone.View.extend({
+	tagName: 'div',
+	className: 'buttonModule',
+
+	initialize: function() {
+		this.render();
+	},
+
+	render: function() {
+		$.get('/templates/view_templates.html', function (data) {
+            template = _.template(data, {  });
+            this.$el.html(template);  
+        }, 'html');
 	}
 });
 
