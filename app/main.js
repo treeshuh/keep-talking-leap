@@ -82,6 +82,7 @@ var intersectButton = function(intersectingModule, screenPosition) {
 			&& screenPosition[1] < origin.top + 150) {
 			$("table " + makeTableFromRC(r,c) + " button").addClass("hover-btn");
 			activeButton = intersectingModule;
+			activeKnob = null;
 		} else {
 			 $("table " + makeTableFromRC(r,c) + " button").removeClass("hover-btn");
 			 activeButton = null;
@@ -122,6 +123,7 @@ var intersectKnob = function(intersectingModule, screenPosition) {
 			&& screenPosition[1] < origin.top + 200) {
 			$("table " + makeTableFromRC(r,c)).addClass("hover-knob");
 			activeKnob = intersectingModule;
+			activeButton = null;
 		} else {
 			 $("table " + makeTableFromRC(r,c)).removeClass("hover-knob");
 			 activeKnob = null;
@@ -202,17 +204,43 @@ var setUpUI = function() {
 setUpUI();
 
 var swiping = false;
-
+var ERROR_TEXT = "ERROROROROR";
 // TODO : put this in a helpers 
 var vec3Dist = function(vec1, vec2) {
-	a = vec1[0]-vec2[0];
+	if (!vec1 || !vec2) {
+		return ERROR_TEXT;
+	}
+	var a = vec1[0]-vec2[0];
 	a *= a;
-	b = vec1[1]-vec2[1];
+	var b = vec1[1]-vec2[1];
 	b *= b;
-	c = vec2[2]-vec2[2];
+	var c = vec2[2]-vec2[2];
 	c *= c;
 	return Math.sqrt(a + b + c);
 }
+
+var vec3Magnitude = function(vec) {
+	return Math.sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]);
+}
+
+var vec3AngleBetween = function(vec1, vec2) {
+	if (!vec1 || !vec2) {
+		return 0;
+	}
+	// dot product = a b cos theta
+	var a = vec1[0]*vec2[0];
+	var b = vec1[1]*vec2[1];
+	var c = vec1[2]*vec2[2];
+	var dotProduct = a+b+c;
+	console.log(vec1, vec3Magnitude(vec1), vec2, vec3Magnitude(vec2))
+	var cosTheta = dotProduct/(vec3Magnitude(vec1)*vec3Magnitude(vec2));
+	console.log(cosTheta);
+	return Math.acos(cosTheta);
+}
+
+var pointingFingers = [];
+var cutting = false;
+var cutReset = false;
 
 Leap.loop({hand: function(hand) {
     var handPosition = hand.screenPosition();
@@ -223,6 +251,42 @@ Leap.loop({hand: function(hand) {
     	setIntersectingModule(intersectingModule[0], intersectingModule[1]);
     	intersectButton(intersectingModule, cursorPosition);
     	intersectKnob(intersectingModule, cursorPosition);
+
+    	// look for cutting
+    	// palm position down
+    	if (Math.abs(hand.roll()) <= 10*Math.PI/180) {
+    		if (cutting) {
+    			console.log("in cutting motion"); 
+    			var currentFingerDist = vec3Dist(hand.finger(pointingFingers[0].id).tipPosition, hand.finger(pointingFingers[1].id).tipPosition);
+    			console.log(currentFingerDist);
+    			if (currentFingerDist == ERROR_TEXT) {
+    				cutting = false;
+    			}
+    			if (currentFingerDist <= 25) {
+    				console.log("cut");
+    				cutting = false;
+    				cutReset = true;
+    				window.setTimeout(function() {
+    					cutReset = false;
+    				}, 500);
+    			}
+
+    		} else {
+    			pointingFingers = [];
+    			hand.fingers.forEach(function(finger) {
+    				if (finger.extended) {
+    					pointingFingers.push(finger);
+    				}
+	  	  		});
+    			if (pointingFingers.length == 2 && !cutting && !cutReset) {
+    				var currentFingerDist = vec3Dist(pointingFingers[0].tipPosition, pointingFingers[1].tipPosition);
+    				if (currentFingerDist >= 35) {
+    					cutting = true;
+    					console.log("cutting");
+    				}
+    			} 
+    		}
+    	} 
     } else {
     	stopIntersectingModule();
     	activeButton = null;
