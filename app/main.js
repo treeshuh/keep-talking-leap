@@ -229,7 +229,7 @@ var addKnobModule = function(parentSelector, r, c) {
 	a.className = "knob-arrow";
 	d.append(a); 
 	var k = document.createElement("img");
-	k.src = "./images/dial.jpg";
+	k.src = "./images/dial.png";
 	k.className = "knob-img";
 	d.appendChild(k);
 
