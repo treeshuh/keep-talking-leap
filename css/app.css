@@ -38,6 +38,10 @@ canvas {
 	background-color: yellow;
 }
 
+.green {
+	background-color: green;
+}
+
 .blue {
 	background-color: blue;
 }
@@ -46,8 +50,8 @@ canvas {
 	background-color: white;
 }
 
-.green {
-	background-color: green;
+.black {
+	background-color: black;
 }
 
 .circle-btn {
@@ -102,18 +106,17 @@ canvas {
 	height: 100%;
 	width: 10px;
 	display: inline-block;
-	background-color: green;
 	border: 1px solid white;
 	position: absolute;
 	top: 0;
 }
 
 .wire.hover-wire {
-	background-color: yellow;
+	border: 2px solid purple;
 }
 
 .wire.indicate-wire {
-	background-color: orange;
+	border: 2px solid orange;
 }
 
 .wire.cut-wire {
@@ -121,11 +124,11 @@ canvas {
 }
 
 /* Succeeded in disarming module */
-.pink {
-	background-color: pink;
+.module-container td.disarmed-passed {
+	background-color: green;
 }
 
 /* Failed in disarming module */
-.purple {
-	background-color: purple;
+.module-container td.disarmed-failed {
+	background-color: red;
 }

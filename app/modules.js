@@ -1,58 +1,211 @@
-var GameManager = Backbone.Model.extend({
-	defaults: {
-		MAX_FAILS: 3,					// bomb explodes upon this many fails
-		MAX_TIME: 600,					// num milliseconds player starts with to disarm all modules
-
-		NUM_MODULES: 0,					// num modules in bomb
-		NUM_DISARMED_MODULES: 0,		// num modules that have been disarmed
-		NUM_FAILED_MODULES: 0			// num modules that player failed at disarming
-	},
-
-	/**
-	 * Check if game is over.
-	 * @return {List<bool>} an array of 2 booleans answering:
-	 *		1: is the game over?
-	 *		2: did the player win?
-	 */
-	endGame: function() {
-		if (this.get("NUM_FAILED_MODULES") == this.get("MAX_FAILS")) {		// TODO: or if time runs out
-			return [true, false];
-		} else if (this.get("NUM_MODULES") == this.get("NUM_DISARMED_MODULES") + this.get("NUM_FAILED_MODULES")) {
-			return [true, true];
-		} else {
-			return [false, false];
-		}
-	}
-});
-
 var Module = Backbone.Model.extend({
 	defaults: {
 		side: null,
 		row: null,
 		column: null,
 		passed: false,
-		failed: false
+		failed: false,
+		active: false,
+		hoverPosition: null,
+		activeWire: null 		// all modules have this because to check for cutting motion, we need to know if a wire is active in the active module
+	},
+
+	onCircle: function(clockwise) {},
+
+	onKeyTap: function() {},
+
+	onScreenTap: function() {},
+
+	/**
+	 * Get the active wire index, counting from left to right.
+	 * @return {int} the index off the current active wire, counting form left to right, or null if no wire is active
+	 */
+	getActiveWire: function() {
+		return this.get("activeWire");
 	},
 });
 
+var ModuleView = Backbone.View.extend({
+	/**
+	 * Change the view to reflect the module's activeness.
+	 */
+	changeActive: function() {
+		var active = this.model.get("active");
+
+		if (active) {
+			this.$el.parent().addClass("active-module");
+		} else {
+			this.$el.parent().removeClass("active-module");
+		}
+	},
+
+	onPass: function() {
+		this.$el.parent().addClass("module-success");
+	},
+
+	onFail: function() {
+		this.$el.parent().addClass("module-fail");
+	}
+});
+
+var BombModel = Backbone.Model.extend({
+	defaults: {
+		side: 0		// 0 is front, 1 is back
+	},
+
+	changeSides: function() {
+		var side = this.getSide();
+		this.set({side: 1-side});
+	},
+
+	getSide: function() {
+		return this.get("side");
+	}
+});
+
+var BombSideView = Backbone.View.extend({
+	tagName: "div",
+	className: "bomb-side",
+	template: _.template($("#bombSideTemplate").html()),
+
+	initialize: function(attributes) {
+		this.id = attributes.id;
+		this.idText = attributes.idText;
+
+		this.listenTo(this.model, "change:side", this.display);
+
+		return this.render();
+	},
+	
+	render: function() {
+		this.$el.html(this.template({idText: this.idText}));
+
+		return this.el;
+	},
+
+	display: function() {
+		if (this.id == "bomb-front" && this.model.getSide() == 0) {
+			this.$el.show();
+		} else if (this.id == "bomb-back" && this.model.getSide() == 1) {
+			this.$el.show();
+		} else {
+			this.$el.hide();
+		}
+	}
+});
 
 var ModuleManager = Backbone.Collection.extend({
 	model: Module,
 
 	/**
 	 * Get the module at the specified location.
-	 * @param {String} side - one of front or back
+	 * @param {int} side - front is 0, back is 1
 	 * @param {int} row - top row is 0, bottom row is 1
 	 * @param {int} column - from left to right, columns are numbered 0 to 2
 	 * @return {module} the module at the specified location, or null if there is no module at that location
 	 */
 	getModuleAt: function(side, row, column) {
-		var moduleList =  this.where({ side: side, row: row, column: column });
-		
-		if (moduleList.length >= 1) {
-			return moduleList[0];
+		return this.findWhere({side: side, row: row, column: column});
+	},
+
+	/**
+	 * Make the module at the specified location active.
+	 * @param {int} side - front is 0, back is 1
+	 * @param {int} row - top row is 0, bottom row is 1
+	 * @param {int} column - from left to right, columns are numbered 0 to 2
+	 */
+	startIntersectingModule: function(side, row, column) {
+		var activeModule = this.findWhere({active: true});
+
+		if (activeModule) {
+			if (activeModule.get("side") == side && activeModule.get("row") == row && activeModule.get("column") == column) {
+				return ;
+			}
+		}
+
+		this.stopIntersectingModules();
+		var newlyActiveModule = this.getModuleAt(side, row, column);
+
+		if (newlyActiveModule) {
+			newlyActiveModule.set({active: true});
+		}
+	},
+
+	/**
+	 * Make all active modules inactive.
+	 */
+	stopIntersectingModules: function() {
+		var activeModules = this.where({active: true});
+
+		if (activeModules.length > 0) {
+			for (var i=0; i<activeModules.length; ++i) {
+				activeModules[i].set({active: false});
+			}
+		}
+	},
+
+	/**
+	 * Activate hover on specified module, and deactivate hover on all other modules.
+	 * @param {int} side - front is 0, back is 1
+	 * @param {int} row - top row is 0, bottom row is 1
+	 * @param {int} column - from left to right, columns are numbered 0 to 2
+	 * @param {List<float>} screenPosition - screen position of cursor
+	 */
+	onHover: function(side, row, column, screenPosition) {
+		this.each(function(module) {
+			module.set({hoverPosition: null});
+		});
+
+		var hoverModule = this.getModuleAt(side, row, column);
+
+		if (hoverModule) {
+			hoverModule.set({hoverPosition: screenPosition});
+		}
+	},
+
+	onCircle: function(clockwise) {
+		var activeModule = this.findWhere({active: true});
+
+		if (activeModule) {
+			activeModule.onCircle(clockwise);
+		}
+	},
+
+	onKeyTap: function() {
+		var activeModule = this.findWhere({active: true});
+
+		if (activeModule) {
+			activeModule.onKeyTap();
+		}
+	},
+
+	onScreenTap: function() {
+		var activeModule = this.findWhere({active: true});
+
+		if (activeModule) {
+			activeModule.onScreenTap();
+		}
+	},
+
+	/**
+	 * Check if game is over.
+	 * @param {int} currentTime - number of ms since game started
+	 * @return {List<bool>} an array of 2 booleans answering:
+	 *		1: is the game over?
+	 *		2: did the player win?
+	 */
+	endGame: function(currentTime) {
+		MAX_FAILS = 3;		// bomb explodes upon this many fails
+		MAX_TIME = 600;		// num ms player starts with to disarm all modules
+		num_disarmed_modules = this.where({ passed: true }).length;
+		num_failed_modules = this.where({ failed: true }).length;
+
+		if (num_failed_modules == MAX_FAILS || currentTime > MAX_TIME) {
+			return [true, false];
+		} else if (this.length == num_disarmed_modules + num_failed_modules) {
+			return [true, true];
 		} else {
-			return null;
+			return [false, false];
 		}
 	}
 });
@@ -63,7 +216,9 @@ var WiresModule = Module.extend({
 		MIN_NUM_WIRES: 3,
 		MAX_NUM_WIRES: 6,
 
-		wires: []	// wires listed by color from left to right
+		wires: [],		// wires listed by color from left to right
+		cutWires: [],	// is the wire at the corresponding index cut?
+		cuttingWire: false 	// is the hand in position to cut the wire?
 	},
 
 	/**
@@ -77,10 +232,8 @@ var WiresModule = Module.extend({
 	 * 		0 means randomly choose a valid situation given number of wires. If situation is invalid given bomb parameters, default to else case.
 	 * @param {int} options.serialNumber - the bomb's serial number
 	 */
-	initialize: function(side, row, column, numWires, situation, serialNumber) {
-		side = attributes.side;
-		row = attributes.row;
-		column = attributes.column;
+	initialize: function(attributes, options) {
+		this.set({side: attributes.side, row: attributes.row, column: attributes.column});
 		numWires = options.numWires;
 		situation = options.situation;
 		serialNumber = options.serialNumber;
@@ -100,6 +253,8 @@ var WiresModule = Module.extend({
 		var wireSet = [];
 
 		if (numWires == 3) {
+			this.set({cutWires: [false, false, false]});
+
 			if (situation == 1) {
 				var possibleColors = _.without(this.get("POSSIBLE_WIRE_COLORS"), "red");
 				wireSet = _.sample(possibleColors, numWires);
@@ -115,7 +270,7 @@ var WiresModule = Module.extend({
 				var possibleBlueWireIndex = _.random(0, numWires - 1);
 				var redWireIndex = _.random(0, numWires - 1);
 
-				for (i=0; i<numWires; ++i) {
+				for (var i=0; i<numWires; ++i) {
 					if (i == redWireIndex) {
 						wireSet.push("red");
 					} else {
@@ -189,7 +344,7 @@ var WiresModule = Module.extend({
 					selectedWireColors = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red", "yellow", "blue"), numOtherWireColors);
 				}
 
-				for (i=0; i<numWires; ++i) {
+				for (var i=0; i<numWires; ++i) {
 					if (i < numRedWires) {
 						selectedWireColors.push("red");
 					}
@@ -225,7 +380,7 @@ var WiresModule = Module.extend({
 				var numYellowWires = _.random(2, numWires - 1);
 				var randomizedIndices = _.shuffle(_.range(0, numWires));
 
-				for (i=0; i<numYellowWires; ++i) {
+				for (var i=0; i<numYellowWires; ++i) {
 					wireSet[randomizedIndices[i]] = "yellow";
 				}
 
@@ -255,7 +410,7 @@ var WiresModule = Module.extend({
 					selectedWireColors = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red", "yellow", "black"), numOtherWireColors);
 				}
 
-				for (i=0; i<numWires; ++i) {
+				for (var i=0; i<numWires; ++i) {
 					if (i < numRedWires) {
 						selectedWireColors.push("red");
 					}
@@ -294,7 +449,7 @@ var WiresModule = Module.extend({
 				var numWhiteWires = _.random(2, numWires - 1);
 				var validIndices = _.without(_.range(0, numWires), yellowWireIndex);
 
-				for (i=0; i<numWhiteWires; ++i) {
+				for (var i=0; i<numWhiteWires; ++i) {
 					var whiteWireIndex = _.sample(validIndices);
 					wireSet[whiteWireIndex] = "white";
 					validIndices.splice(indexOf(whiteWireIndex), 1);
@@ -324,7 +479,7 @@ var WiresModule = Module.extend({
 					selectedWireColors = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red", "yellow", "white"), numOtherWireColors);
 				}
 
-				for (i=0; i<numWires; ++i) {
+				for (var i=0; i<numWires; ++i) {
 					if (i < numRedWires) {
 						selectedWireColors.push("red");
 					}
@@ -342,77 +497,199 @@ var WiresModule = Module.extend({
 			}
 		}
 
-		set({wires: wireSet});
+		this.set({wires: wireSet});
 	},
 
 	/**
 	 * Determine whether the player successfully disarms the wires module.
 	 * Call when player cuts a wire.
 	 * @param {int} wirePosition - the wire position, zero-indexed starting on the left side of the module
-	 * @return {bool} whether the player successfully disarms the module
 	 */
 	passOrFail: function(wirePosition) {
 		var numWires = this.get(wires).length;
+		var passed = false;
 
 		if (numWires == 3) {
 			if (!this.get(wires).includes("red")) {
-				return wirePosition == 1;
+				passed = (wirePosition == 1);
 			} else if (_.last(this.get(wires)) == "white") {
-				return wirePosition == numWires - 1;
+				passed = (wirePosition == numWires - 1);
 			} else if (this.get(wires).indexOf("blue") != this.get(wires).lastIndexOf("blue")) {
-				return wirePosition == this.get(wires).lastIndexOf("blue");
+				passed = (wirePosition == this.get(wires).lastIndexOf("blue"));
 			} else {
-				return wirePosition == numWires - 1;
+				passed = (wirePosition == numWires - 1);
 			}
 		} else if (numWires == 4) {
 			if (this.get(wires).indexOf("red") != this.get(wires).lastIndexOf("red") && serialNumber % 2 == 1) {
-				return wirePosition == this.get(wires).lastIndexOf("red");
+				passed = (wirePosition == this.get(wires).lastIndexOf("red"));
 			} else if (_.last(this.get(wires)) == "yellow" && !this.get(wires).includes("red")) {
-				return wirePosition == 0;
+				passed = (wirePosition == 0);
 			} else if (this.get(wires).indexOf("blue") == this.get(wires).lastIndexOf("blue") && this.get(wires).includes("blue")) {
-				return wirePosition == 0;
+				passed = (wirePosition == 0);
 			} else if (this.get(wires).indexOf("yellow") != this.get(wires).lastIndexOf("yellow")) {
-				return wirePosition == numWires - 1;
+				passed = (wirePosition == numWires - 1);
 			} else {
-				return wirePosition == 1;
+				passed = (wirePosition == 1);
 			}
 		} else if (numWires == 5) {
 			if (_.last(this.get(wires)) == "black" && serialNumber % 2 == 1) {
-				return wirePosition == 3;
+				passed = (wirePosition == 3);
 			} else if (this.get(wires).indexOf("red") == this.get(wires).lastIndexOf("red") && this.get(wires).includes("red") && this.get(wires).indexOf("yellow") != this.get(wires).lastIndexOf("yellow")) {
-				return wirePosition == 0;
+				passed = (wirePosition == 0);
 			} else if (!this.get(wires).includes("black")) {
-				return wirePosition == 1;
+				passed = (wirePosition == 1);
 			} else {
-				return wirePosition == 0;
+				passed = (wirePosition == 0);
 			}
 		} else {
 			if (!this.get(wires).includes("yellow") && serialNumber % 2 == 1) {
-				return wirePosition == 2;
+				passed = (wirePosition == 2);
 			} else if (this.get(wires).indexOf("yellow") == this.get(wires).lastIndexOf("yellow") && this.get(wires).includes("yellow") && this.get(wires).indexOf("white") != this.get(wires).lastIndexOf("white")) {
-				return wirePosition == 3;
+				passed = (wirePosition == 3);
 			} else if (!this.get(wires).includes("red")) {
-				return wirePosition == numWires - 1;
+				passed = (wirePosition == numWires - 1);
 			} else {
-				return wirePosition == 3;
+				passed =  (wirePosition == 3);
 			}
 		}
+
+		if (passed) {
+			this.set({passed: true});
+		} else {
+			this.set({failed: true});
+		}
+	},
+
+	cutWire: function() {
+		var activeWireIndex = this.getActiveWire();
+		wireCuts = this.get("cutWires");
+		wireCuts[activeWireIndex] = true;
+		this.set({cutWires: wireCuts});
 	}
 });
 
-var WiresView = Backbone.View.extend({
+var WiresView = ModuleView.extend({
 	tagName: 'div',
-	className: 'module wiresModule',
+	className: 'module wiresModule wire-container',
 	template: _.template($("#wiresTemplate").html()),
 	model: "none",
+	attributes: {
+		WIRE_MARGIN: 10
+	},
 
 	initialize: function(attributes) {
 		this.model = attributes.model;
-		this.render();
+		this.attributes.cellWidth = attributes.cellWidth;
+		var wireColors = this.model.get("wires");
+		var numWires = wireColors.length;
+
+		for (var i=0; i<numWires; ++i) {
+			var wire = document.createElement("div");
+			wire.className = "wire " + wireColors[i];
+			wire.id = this.createWireID(i);
+			wire.style.left = String(30 + (this.attributes.cellWidth-100)/(numWires-1)*i) + "px";
+			this.el.append(wire);
+		}
+
+		this.listenTo(this.model, "change:active", this.changeActive);
+		this.listenTo(this.model, "change:passed", this.onPass);
+		this.listenTo(this.model, "change:failed", this.onFail);
+		this.listenTo(this.model, "change:hoverPosition", this.onHover);
+		this.listenTo(this.model, "change:cuttingWire", this.onIndicateCut)
+		this.listenTo(this.model, "change:cutWires", this.onWireCut);
+
+		return this.render();
 	},
 
 	render: function() {
-		this.$el.html(this.template(this.model.toJSON()));
+		return this.el;
+	},
+
+	/**
+	 * On hover, highlight module and wire as appropriate.
+	 */
+	onHover: function() {
+		var screenPosition = this.model.get("hoverPosition");
+		var cutWires = this.model.get("cutWires");
+		var numWires = cutWires.length;
+		var activeWireIndex = this.model.get("activeWire");
+
+		for (var i=0; i<numWires; ++i) {
+			var origin = $("#" + this.createWireID(i)).offset();
+
+			if (origin && !cutWires[i] && screenPosition) {
+				if (screenPosition[0] > origin.left - this.attributes.WIRE_MARGIN
+					&& screenPosition[0] < origin.left + $("#" + this.createWireID(i)).width() + this.attributes.WIRE_MARGIN
+					&& screenPosition[1] > origin.top - this.attributes.WIRE_MARGIN
+					&& screenPosition[1] < origin.top + $("#" + this.createWireID(i)).height() + this.attributes.WIRE_MARGIN) {
+
+					if (activeWireIndex != i && !this.model.get("cuttingWire")) {
+						if (activeWireIndex) {
+							this.onStopHoverOne(activeWireIndex);
+						}
+
+						console.log("add hover");
+						this.model.set({activeWire: i});
+						$("#" + this.createWireID(i)).addClass("hover-wire");
+						return ;
+					}
+				} else {
+					if (activeWireIndex != null) {
+						this.model.set({activeWire: null});
+						this.onStopHoverOne(activeWireIndex);
+					}
+				}
+			}
+		}
+
+		if (!this.model.get("activeWire")) {
+			this.onStopHover();
+		}
+	},
+
+	onStopHoverOne: function(wireNumber) {
+		$("#" + this.createWireID(wireNumber)).removeClass("hover-wire");
+		$("#" + this.createWireID(wireNumber)).removeClass("indicate-wire");
+	},
+
+	onStopHover: function() {
+		this.model.set({activeWire: null});
+		$(".wire").removeClass("hover-wire");
+		$(".wire").removeClass("indicate-wire");
+	},
+
+	onIndicateCut: function() {
+		var activeWireIndex = this.model.get("activeWire");
+		if (activeWireIndex && this.model.get("cuttingWire")) {
+			console.log("indicating wire", activeWireIndex);
+			$("#" + this.createWireID(activeWireIndex)).removeClass("hover-wire");	
+			$("#" + this.createWireID(activeWireIndex)).addClass("indicate-wire");
+			console.log($("#" + this.createWireID(activeWireIndex)).attr('class'));
+		}
+	},
+
+	onWireCut: function() {
+		/*
+		wires = this.model.get("wires");
+		for (var i=0; i<wires.length; ++i) {
+			if (wires[i] == true) {
+				$("#" + this.createWireID(i)).removeClass("indicate-wire");	
+				$("#" + this.createWireID(i)).addClass("cut-wire");
+				console.log("wire is cut");
+			}
+		}*/
+	},
+
+	/**
+	 * Create id for wire given the row and column of the module and the wire number within the module counting from left to right.
+	 * @param {int} wireNumber - the wire number within the module
+	 * @return {String} the wire id
+	 */
+	createWireID: function(wireNumber) {
+		var row = this.model.get("row");
+		var column = this.model.get("column");
+
+		return "wire-"+String(row)+"-"+String(column)+"-"+String(wireNumber);
 	}
 });
 
@@ -441,9 +718,7 @@ var ButtonModule = Module.extend({
 	 * @param {List<String>} options.litIndicators - a list of indicator labels on the bomb that are lit
 	 */
 	initialize: function(attributes, options) {
-		side = attributes.side;
-		row = attributes.row;
-		column = attributes.column;
+		this.set({side: attributes.side, row: attributes.row, column: attributes.column});
 		numBatteries = options.numBatteries;
 		situation = options.situation;
 		litIndicators = options.litIndicators;
@@ -515,19 +790,18 @@ var ButtonModule = Module.extend({
 	 * Determine whether the player successfully disarms module when releasing a held button.
 	 * Call when the player releases the held button.
 	 * @param {String}	countdownTimerValue - the value on the countdown timer when the player releases a held button
-	 * @return {bool} whether the player successfully disarms the bomb
 	 */
 	onHeldButtonRelease: function(countdownTimerValue) {
 		if (this.get("stripColor") == "blue" && countdownTimerValue.contains("4")) {
-			return true;
+			this.set({passed: true});
 		} else if (this.get("stripColor") == "white" && countdownTimerValue.contains("1")) {
-			return true;
+			this.set({passed: true});
 		} else if (this.get("stripColor") == "yellow" && countdownTimerValue.contains("5")) {
-			return true;
+			this.set({passed: true});
 		} else if (countdownTimerValue.contains("1")) {
-			return true;
+			this.set({passed: true});
 		} else {
-			return false;
+			this.set({failed: true});
 		}
 	},
 
@@ -537,7 +811,6 @@ var ButtonModule = Module.extend({
 	 * @param {int} numBatteries - the number of batteries on the bomb
 	 * @param {List<String>} litIndicators - a list of indicator labels on the bomb that are lit
 	 * @param {String} countdownTimerValue - the value on the countdown timer when the player releases the button
-	 * @return {bool} whether the player successfully disarms the module
 	 */
 	passOrFail: function(numBatteries, litIndicators, countdownTimerValue) {
 		var d = new Date();
@@ -555,7 +828,6 @@ var ButtonModule = Module.extend({
 				passed = this.onHeldButtonRelease(countdownTimerValue);
 			}
 		} else if (numBatteries > 2 && litIndicators.includes("frk")) {
-			console.log(timePressed);
 			passed = (timePressed < this.get("HOLD_BUFFER_TIME"));
 		} else if (this.get("buttonColor") == "yellow") {
 			if (timePressed > this.get("HOLD_BUFFER_TIME")) {
@@ -569,12 +841,25 @@ var ButtonModule = Module.extend({
 			}
 		}
 
-		this.set({passed: passed});
-		return passed;
+		if (passed) {
+			this.set({passed: true});
+		} else {
+			this.set({failed: true});
+		}
+	},
+
+	onKeyTap: function() {
+		console.log("Key Tap Gesture");
+		this.set({passed: true});
+	},
+
+	onScreenTap: function() {
+		console.log("Screen Tap Gesture");
+		this.set({passed: true});
 	}
 });
 
-var ButtonView = Backbone.View.extend({
+var ButtonView = ModuleView.extend({
 	tagName: "button",
 	className: "module buttonModule circle-btn",
 	template: _.template($("#buttonTemplate").html()),
@@ -585,13 +870,12 @@ var ButtonView = Backbone.View.extend({
 		var buttonColor = this.model.get("buttonColor");
 		this.$el.addClass(buttonColor);
 
-		return this.render();
-	},
+		this.listenTo(this.model, "change:active", this.changeActive);
+		this.listenTo(this.model, "change:passed", this.onPass);
+		this.listenTo(this.model, "change:failed", this.onFail);
+		this.listenTo(this.model, "change:hoverPosition", this.onHover);
 
-	events: {
-		"press": "pressAction",
-		"hold": "holdAction",
-		"release": "releaseAction"
+		return this.render();
 	},
 
 	render: function() {
@@ -599,21 +883,117 @@ var ButtonView = Backbone.View.extend({
 		return this.el;
 	},
 
-	pressAction: function(e) {
-		model.onButtonPress();
-		// show that button remains pressed
-	},
+	/**
+	 * On hover, highlight module.
+	 */
+	onHover: function() {
+		var origin = this.$el.offset();
+		var screenPosition = this.model.get("hoverPosition");
 
-	holdAction: function(e) {
-		model.onButtonHold();
-	},
-
-	releaseAction: function(e) {
-		if (model.passOrFail()) {
-			// disarmed button module
-		} else {
-			// failed to disarm button module
+		if (origin && screenPosition) {
+			if (screenPosition[0] > origin.left
+				&& screenPosition[0] < origin.left + 150
+				&& screenPosition[1] > origin.top 
+				&& screenPosition[1] < origin.top + 150) {
+				this.$el.addClass("hover-btn");
+			} else {
+				this.onStopHover();
+			}
 		}
+	},
+
+	onStopHover: function() {
+		this.$el.removeClass("hover-btn");
+	}
+});
+
+var KnobsModule = Module.extend({
+	defaults: {
+		INITIAL_ROTATE: 268,
+		ROTATE_RATE: 1,
+		ROTATE_LOCK_ANGLE: 31.01,
+		currentRotate: 268
+	},
+
+	initialize: function(attributes, options) {
+		this.set({side: attributes.side, row: attributes.row, column: attributes.column});
+		var situation = options.situation;
+	},
+
+	passOrFail: function() {},
+
+	onCircle: function(clockwise) {
+		console.log("Circle Gesture");
+		var currentAngle = this.get("currentRotate");
+		
+		if (clockwise) {
+			currentAngle += this.get("ROTATE_RATE");
+		} else {
+			currentAngle -= this.get("ROTATE_RATE");
+		}
+
+		this.set({currentRotate: currentAngle});
+	}
+});
+
+var KnobsView = ModuleView.extend({
+	tagName: "div",
+	className: "module knobsModule",
+	template: _.template($("#knobsTemplate").html()),
+	model: "none",
+
+	initialize: function(attributes) {
+		this.model = attributes.model;
+
+		this.listenTo(this.model, "change:active", this.changeActive);
+		this.listenTo(this.model, "change:passed", this.onPass);
+		this.listenTo(this.model, "change:failed", this.onFail);
+		this.listenTo(this.model, "change:hoverPosition", this.onHover);
+		this.listenTo(this.model, "change:currentRotate", this.onRotate);
+
+		return this.render();
+	},
+
+	render: function() {
+		this.$el.html(this.template(this.model.toJSON()));
+		this.$el.children("img.knob-img").css({"transform": 'rotate(' + this.model.get("INITIAL_ROTATE") + 'deg)'});
+		return this.el;
+	},
+
+	onHover: function() {
+		var origin = this.$el.offset();
+		var screenPosition = this.model.get("hoverPosition");
+
+		if (origin && screenPosition) {
+			if (screenPosition[0] > origin.left
+				&& screenPosition[0] < origin.left + 200
+				&& screenPosition[1] > origin.top 
+				&& screenPosition[1] < origin.top + 200) {
+				this.$el.addClass("hover-knob");
+			} else {
+				this.$el.removeClass("hover-knob");
+			}		
+		}
+	},
+
+	knobRotationToValue: function(rotation) {
+		var initialRotate = this.model.get("INITIAL_ROTATE");
+		var rotateLockAngle = this.model.get("ROTATE_LOCK_ANGLE");
+		var value = Math.floor( ((rotation-initialRotate+720) % 360) / rotateLockAngle) + 1;
+
+		if (value >= 1 && value <= 9) {
+			return value;
+		} else if (value == 10) {
+			return 0;
+		} else {
+			return "";
+		}
+	},
+
+	onRotate: function() {
+		var rotation = this.model.get("currentRotate")
+		this.$el.children("div.knob-text").text(this.knobRotationToValue(rotation));
+		this.$el.children("img.knob-img").css({"transform": 'rotate(' + rotation + 'deg)'});	
 	}
 });
 
@@ -639,6 +1019,4 @@ var PasswordsModule = Module.extend({});
 var VentingGasModule = Module.extend({});
 
 var CapacitatorDischargeModule = Module.extend({});
-
-var KnobsModule = Module.extend({});
 */

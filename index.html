@@ -9,6 +9,7 @@
 
     <!-- CSS -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Overpass+Mono" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="css/app.css" />
     
     <script type="text/javascript" src="lib/jquery.min.js"></script>
@@ -22,9 +23,21 @@
     <script type="text/javascript" src="lib/backbone.min.js"></script>
 
     <!-- Templates for module views -->
+    <script type="text/template" id="bombSideTemplate">
+        <h1><%= idText %></h1>
+        <table class="module-container">
+            <tr><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td></tr>
+        </table>
+    </script>
     <script type="text/template" id="wiresTemplate"></script>
     <script type="text/template" id="buttonTemplate">
         <%= buttonLabel %>
+    </script>
+    <script type="text/template" id="knobsTemplate">
+        <div class="knob-text"></div>
+        <img src="./images/arrow.png" class="knob-arrow">
+        <img src="./images/dial.png" class="knob-img">
     </script>
 
     <!-- App code -->
