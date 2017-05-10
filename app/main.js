@@ -431,7 +431,7 @@ var setUpUI = function() {
 	var ctx = c.getContext('2d');
 	cursor.on("change:screenPosition", function(model, position) {
 		ctx.clearRect(0,0,c.width,c.height);
-		ctx.fillStyle = cursor.color;
+		ctx.fillStyle = cursor.get('color');
 		ctx.beginPath();
 		ctx.arc(position[0], position[1], 10, 0, 2*Math.PI);
 		ctx.fill();
