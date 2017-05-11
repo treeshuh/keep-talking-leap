@@ -574,7 +574,6 @@ var WiresView = ModuleView.extend({
 		var numWires = wireColors.length;
 		var emptySpace = this.attributes.cellWidth - numWires * this.attributes.WIRE_MARGIN;
 		var spaceBetween = emptySpace / (numWires + 1);
-		console.log(spaceBetween);
 
 		for (var i=0; i<numWires; ++i) {
 			var wire = document.createElement("div");

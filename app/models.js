@@ -1,7 +1,7 @@
 var Cursor = Backbone.Model.extend({
   defaults: {
     screenPosition: [0, 0],
-    color: '#f1c40f'
+    color: '#9b59b6'
   },
   setScreenPosition: function(position) {
     this.set('screenPosition', position.slice(0));
