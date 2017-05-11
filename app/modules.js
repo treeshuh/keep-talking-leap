@@ -109,17 +109,21 @@ var ModuleManager = Backbone.Collection.extend({
 	},
 
 	/**
-	 * Make the module at the specified location active.
+	 * Make the module at the specified location active and activate hover on it. Make all other active modules inactive and deactivate hover on them.
 	 * @param {int} side - front is 0, back is 1
 	 * @param {int} row - top row is 0, bottom row is 1
 	 * @param {int} column - from left to right, columns are numbered 0 to 2
+	 * @param {List<float>} screenPosition - screen position of cursor
 	 */
-	startIntersectingModule: function(side, row, column) {
+	startIntersectingModule: function(side, row, column, screenPosition) {
 		var activeModule = this.findWhere({active: true});
 
 		if (activeModule) {
 			if (activeModule.get("side") == side && activeModule.get("row") == row && activeModule.get("column") == column) {
+				activeModule.set({hoverPosition: screenPosition});
 				return ;
+			} else {
+				activeModule.set({hoverPosition: null});
 			}
 		}
 
@@ -127,7 +131,7 @@ var ModuleManager = Backbone.Collection.extend({
 		var newlyActiveModule = this.getModuleAt(side, row, column);
 
 		if (newlyActiveModule) {
-			newlyActiveModule.set({active: true});
+			newlyActiveModule.set({active: true, hoverPosition: screenPosition});
 		}
 	},
 
@@ -141,25 +145,6 @@ var ModuleManager = Backbone.Collection.extend({
 			for (var i=0; i<activeModules.length; ++i) {
 				activeModules[i].set({active: false});
 			}
-		}
-	},
-
-	/**
-	 * Activate hover on specified module, and deactivate hover on all other modules.
-	 * @param {int} side - front is 0, back is 1
-	 * @param {int} row - top row is 0, bottom row is 1
-	 * @param {int} column - from left to right, columns are numbered 0 to 2
-	 * @param {List<float>} screenPosition - screen position of cursor
-	 */
-	onHover: function(side, row, column, screenPosition) {
-		this.each(function(module) {
-			module.set({hoverPosition: null});
-		});
-
-		var hoverModule = this.getModuleAt(side, row, column);
-
-		if (hoverModule) {
-			hoverModule.set({hoverPosition: screenPosition});
 		}
 	},
 
@@ -287,6 +272,8 @@ var WiresModule = Module.extend({
 				}
 			}
 		} else if (numWires == 4) {
+			this.set({cutWires: [false, false, false, false]});
+
 			if (situation == 1 && serialNumber % 2 == 1) {
 				wireSet = _.sample(this.get("POSSIBLE_WIRE_COLORS"), numWires);
 
@@ -372,6 +359,8 @@ var WiresModule = Module.extend({
 				}
 			}
 		} else if (numWires == 5) {
+			this.set({cutWires: [false, false, false, false, false]});
+
 			if (situation == 1 & serialNumber % 2 == 1) {
 				wireSet = _.sample(this.get("POSSIBLE_WIRE_COLORS"), numWires - 1);
 				wireSet.push("black");
@@ -439,6 +428,7 @@ var WiresModule = Module.extend({
 			}
 		} else {
 			numWires = 6;
+			this.set({cutWires: [false, false, false, false, false, false]});
 
 			if (situation == 1 && serialNumber % 2 == 1) {
 				wireSet = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "yellow"), numWires);
@@ -562,9 +552,9 @@ var WiresModule = Module.extend({
 
 	cutWire: function() {
 		var activeWireIndex = this.getActiveWire();
-		wireCuts = this.get("cutWires");
+		wireCuts = this.get("cutWires").slice();
 		wireCuts[activeWireIndex] = true;
-		this.set({cutWires: wireCuts});
+		this.set({cuttingWire: false, cutWires: wireCuts});
 	}
 });
 
@@ -614,6 +604,11 @@ var WiresView = ModuleView.extend({
 		var numWires = cutWires.length;
 		var activeWireIndex = this.model.get("activeWire");
 
+		/* if wire isn't cut, check if cursor is over each wire
+		 * if cursor is over wire:
+		 * if cursor isn't over wire: 
+		 */
+
 		for (var i=0; i<numWires; ++i) {
 			var origin = $("#" + this.createWireID(i)).offset();
 
@@ -622,28 +617,21 @@ var WiresView = ModuleView.extend({
 					&& screenPosition[0] < origin.left + $("#" + this.createWireID(i)).width() + this.attributes.WIRE_MARGIN
 					&& screenPosition[1] > origin.top - this.attributes.WIRE_MARGIN
 					&& screenPosition[1] < origin.top + $("#" + this.createWireID(i)).height() + this.attributes.WIRE_MARGIN) {
-
 					if (activeWireIndex != i && !this.model.get("cuttingWire")) {
 						if (activeWireIndex) {
 							this.onStopHoverOne(activeWireIndex);
 						}
 
-						console.log("add hover");
 						this.model.set({activeWire: i});
 						$("#" + this.createWireID(i)).addClass("hover-wire");
-						return ;
 					}
 				} else {
-					if (activeWireIndex != null) {
-						this.model.set({activeWire: null});
+					if (activeWireIndex == i) {
+						this.model.set({activeWire: null, cuttingWire: false});
 						this.onStopHoverOne(activeWireIndex);
 					}
 				}
 			}
-		}
-
-		if (!this.model.get("activeWire")) {
-			this.onStopHover();
 		}
 	},
 
@@ -660,24 +648,25 @@ var WiresView = ModuleView.extend({
 
 	onIndicateCut: function() {
 		var activeWireIndex = this.model.get("activeWire");
+		console.log(activeWireIndex);
 		if (activeWireIndex && this.model.get("cuttingWire")) {
-			console.log("indicating wire", activeWireIndex);
 			$("#" + this.createWireID(activeWireIndex)).removeClass("hover-wire");	
 			$("#" + this.createWireID(activeWireIndex)).addClass("indicate-wire");
-			console.log($("#" + this.createWireID(activeWireIndex)).attr('class'));
+		} else if (!this.model.get("cuttingWire")) {
+			$("#" + this.createWireID(activeWireIndex)).removeClass("indicate-wire");
+			$("#" + this.createWireID(activeWireIndex)).addClass("hover-wire");
 		}
 	},
 
 	onWireCut: function() {
-		/*
-		wires = this.model.get("wires");
+		wires = this.model.get("cutWires");
 		for (var i=0; i<wires.length; ++i) {
 			if (wires[i] == true) {
-				$("#" + this.createWireID(i)).removeClass("indicate-wire");	
+				$("#" + this.createWireID(i)).removeClass("indicate-wire");
+				$("#" + this.createWireID(i)).removeClass("hover-wire");				
 				$("#" + this.createWireID(i)).addClass("cut-wire");
-				console.log("wire is cut");
 			}
-		}*/
+		}
 	},
 
 	/**

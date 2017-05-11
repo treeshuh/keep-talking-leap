@@ -96,6 +96,19 @@ var makeTableFromRC = function(r, c) {
 
 
 /* UI SET UP */
+var addWireModule = function(parentSelector, r, c, numWires, situation) {
+	var side = 0;
+
+	if (parentSelector == "#bomb-back") {
+		side = 1;
+	}
+
+	var wiresModel = new WiresModule({side: side, row: r, column: c}, {numWires: numWires, situation: situation, serialNumber: SERIAL_NUMBER});
+	moduleManager.add(wiresModel);
+	var wiresView = new WiresView({model: wiresModel, cellWidth: CELL_WIDTH});
+	$(parentSelector + " " + makeTableFromRC(r, c)).html(wiresView.el);
+}
+
 var addButtonModule = function(parentSelector, r, c, situation) {
 	var side = 0;
 
@@ -122,19 +135,6 @@ var addKnobModule = function(parentSelector, r, c, situation) {
 	$(parentSelector + " " + makeTableFromRC(r, c)).html(knobsView.el);
 }
 
-var addWireModule = function(parentSelector, r, c, numWires) {
-	var side = 0;
-
-	if (parentSelector == "#bomb-back") {
-		side = 1;
-	}
-
-	var wiresModel = new WiresModule({side: side, row: r, column: c}, {numWires: numWires, situation: situation, serialNumber: SERIAL_NUMBER});
-	moduleManager.add(wiresModel);
-	var wiresView = new WiresView({model: wiresModel, cellWidth: CELL_WIDTH});
-	$(parentSelector + " " + makeTableFromRC(r, c)).html(wiresView.el);
-}
-
 var setUpUI = function() {
 	// set up cursor
 	var c = document.createElement("canvas");
@@ -147,7 +147,7 @@ var setUpUI = function() {
 	var ctx = c.getContext('2d');
 	cursor.on("change:screenPosition", function(model, position) {
 		ctx.clearRect(0,0,c.width,c.height);
-		ctx.fillStyle = cursor.color;
+		ctx.fillStyle = cursor.get("color");
 		ctx.beginPath();
 		ctx.arc(position[0], position[1], 10, 0, 2*Math.PI);
 		ctx.fill();
@@ -160,11 +160,11 @@ var setUpUI = function() {
 	document.body.append(bombBackView.el);
 
 	// add modules to layout
+	addWireModule("#bomb-front", 0, 0, 4, 1);
+	addWireModule("#bomb-back", 1, 1, 3, 2);
 	addButtonModule('#bomb-front', 1, 1, 6);
 	addButtonModule('#bomb-back', 1, 2, 4);
 	addKnobModule('#bomb-back', 0, 1, 0);
-	addWireModule("#bomb-front", 0, 0, 4);
-	addWireModule("#bomb-back", 1, 1, 3);
 
 	// Display the front of the bomb and hide the back
 	bombFrontView.display();
@@ -187,8 +187,7 @@ Leap.loop({hand: function(hand) {
     	var side = bombModel.getSide();
     	var row = intersectingModule[0];
     	var column = intersectingModule[1];
-    	moduleManager.startIntersectingModule(side, row, column);
-    	moduleManager.onHover(side, row, column, cursorPosition);
+    	moduleManager.startIntersectingModule(side, row, column, cursorPosition);
 
     	// look for cutting
     	// palm position down
@@ -199,46 +198,42 @@ Leap.loop({hand: function(hand) {
     		activeWire = currentModule.get("activeWire");
     	}
 
+    	var pointingFingers = [];
+    	hand.fingers.forEach(function(finger) {
+    		if (finger.extended) {
+    			pointingFingers.push(finger);
+    		}
+	  	});
+
     	if (activeWire && (Math.abs(hand.roll()) <= 30*Math.PI/180)) {
-    		console.log("active wire: ", activeWire);
-    		if (currentModule.get("cuttingWire")) {
-    			console.log("blah");
-    			var currentFingerDist = vec3Dist(hand.finger(pointingFingers[0].id).tipPosition, hand.finger(pointingFingers[1].id).tipPosition);
-
-    			if (currentFingerDist == ERROR_TEXT) {
-    				currentModule.set({cuttingWire: false});
-    				currentModule.onStopHoverOne(activeWire);
-    			}
-
-    			if ((startDist-currentFingerDist)>7 && activeWire) {
-    				console.log("cutting");
-    				currentModule.set({cuttingWire: false});
-    				currentModule.cutWire();
-    				cutReset = true;
-    				window.setTimeout(function() {
-    					cutReset = false;
-    				}, 500);
-    			}
-    		} else {
-    			console.log("check for cutting motion");
-    			pointingFingers = [];
-    			hand.fingers.forEach(function(finger) {
-    				if (finger.extended) {
-    					pointingFingers.push(finger);
-    				}
-	  	  		});
-
-	  	  		console.log("num fingers: ", pointingFingers.length);
-
-    			if (pointingFingers.length == 2 && !currentModule.get("cuttingWire") && !cutReset) {
+    		if (!currentModule.get("cuttingWire")) {
+    			if (pointingFingers.length == 2 && !cutReset) {
     				var currentFingerDist = vec3Dist(pointingFingers[0].tipPosition, pointingFingers[1].tipPosition);
     				currentModule.set({cuttingWire: true});
-    				console.log("Current finger dist: ", currentFingerDist);
     				
     				if (currentFingerDist >= 32) {
     					startDist = currentFingerDist;
     				}
-    			} 
+    			}
+    		} else {
+    			if (pointingFingers.length == 2) {
+	    			var currentFingerDist = vec3Dist(hand.finger(pointingFingers[0].id).tipPosition, hand.finger(pointingFingers[1].id).tipPosition);
+
+	    			if (currentFingerDist == ERROR_TEXT) {
+	    				currentModule.set({cuttingWire: false});
+	    				currentModule.onStopHoverOne(activeWire);
+	    			}
+
+	    			if ((startDist-currentFingerDist)>7) {
+	    				currentModule.cutWire();
+	    				cutReset = true;
+	    				window.setTimeout(function() {
+	    					cutReset = false;
+	    				}, 500);
+	    			}
+	    		} else {
+	    			currentModule.set({cuttingWire: false});
+	    		}
     		}
     	}
     } else {
