@@ -572,12 +572,15 @@ var WiresView = ModuleView.extend({
 		this.attributes.cellWidth = attributes.cellWidth;
 		var wireColors = this.model.get("wires");
 		var numWires = wireColors.length;
+		var emptySpace = this.attributes.cellWidth - numWires * this.attributes.WIRE_MARGIN;
+		var spaceBetween = emptySpace / (numWires + 1);
+		console.log(spaceBetween);
 
 		for (var i=0; i<numWires; ++i) {
 			var wire = document.createElement("div");
 			wire.className = "wire " + wireColors[i];
-			wire.id = this.createWireID(i);
-			wire.style.left = String(30 + (this.attributes.cellWidth-100)/(numWires-1)*i) + "px";
+			wire.id = this.createWireID(i);			
+			wire.style.left = String(spaceBetween + (spaceBetween+this.attributes.WIRE_MARGIN)*i) + "px";
 			this.el.append(wire);
 		}
 
