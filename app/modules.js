@@ -604,11 +604,6 @@ var WiresView = ModuleView.extend({
 		var numWires = cutWires.length;
 		var activeWireIndex = this.model.get("activeWire");
 
-		/* if wire isn't cut, check if cursor is over each wire
-		 * if cursor is over wire:
-		 * if cursor isn't over wire: 
-		 */
-
 		for (var i=0; i<numWires; ++i) {
 			var origin = $("#" + this.createWireID(i)).offset();
 
@@ -621,7 +616,7 @@ var WiresView = ModuleView.extend({
 						if (activeWireIndex) {
 							this.onStopHoverOne(activeWireIndex);
 						}
-
+						
 						this.model.set({activeWire: i});
 						$("#" + this.createWireID(i)).addClass("hover-wire");
 					}
@@ -648,8 +643,8 @@ var WiresView = ModuleView.extend({
 
 	onIndicateCut: function() {
 		var activeWireIndex = this.model.get("activeWire");
-		console.log(activeWireIndex);
-		if (activeWireIndex && this.model.get("cuttingWire")) {
+
+		if (activeWireIndex != null && this.model.get("cuttingWire")) {
 			$("#" + this.createWireID(activeWireIndex)).removeClass("hover-wire");	
 			$("#" + this.createWireID(activeWireIndex)).addClass("indicate-wire");
 		} else if (!this.model.get("cuttingWire")) {
@@ -659,7 +654,8 @@ var WiresView = ModuleView.extend({
 	},
 
 	onWireCut: function() {
-		wires = this.model.get("cutWires");
+		var wires = this.model.get("cutWires");
+
 		for (var i=0; i<wires.length; ++i) {
 			if (wires[i] == true) {
 				$("#" + this.createWireID(i)).removeClass("indicate-wire");

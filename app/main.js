@@ -192,7 +192,7 @@ Leap.loop({hand: function(hand) {
     	// look for cutting
     	// palm position down
     	var currentModule = moduleManager.getModuleAt(side, row, column);
-    	var activeWire = false;
+    	var activeWire = null;
 
     	if (currentModule) {
     		activeWire = currentModule.get("activeWire");
@@ -205,7 +205,7 @@ Leap.loop({hand: function(hand) {
     		}
 	  	});
 
-    	if (activeWire && (Math.abs(hand.roll()) <= 30*Math.PI/180)) {
+    	if (activeWire != null && (Math.abs(hand.roll()) <= 30*Math.PI/180)) {
     		if (!currentModule.get("cuttingWire")) {
     			if (pointingFingers.length == 2 && !cutReset) {
     				var currentFingerDist = vec3Dist(pointingFingers[0].tipPosition, pointingFingers[1].tipPosition);
