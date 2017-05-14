@@ -83,6 +83,9 @@ var BombSideView = Backbone.View.extend({
 		return this.el;
 	},
 
+	/**
+	 * Shows/hide bomb sides.
+	 */
 	display: function() {
 		if (this.id == "bomb-front" && this.model.getSide() == 0) {
 			this.$el.show();
@@ -96,6 +99,34 @@ var BombSideView = Backbone.View.extend({
 
 var ModuleManager = Backbone.Collection.extend({
 	model: Module,
+	defaults: {
+		NUM_BATTERIES: 4,
+		LIT_INDICATORS: ["frk"],
+		SERIAL_NUMBER: 31415,
+	},
+
+	initialize: function() {
+		this.addWireModule(0, 0, 0, 4, 1);
+		this.addWireModule(1, 1, 1, 3, 2);
+		this.addButtonModule(0, 1, 1, 6);
+		this.addButtonModule(1, 1, 2, 4);
+		this.addKnobModule(1, 0, 1, 0);
+	},
+
+	addWireModule: function(side, r, c, numWires, situation) {
+		var wiresModel = new WiresModule({side: side, row: r, column: c}, {numWires: numWires, situation: situation, serialNumber: this.defaults.SERIAL_NUMBER});
+		this.add(wiresModel);
+	},
+
+	addButtonModule: function(side, r, c, situation) {
+		var buttonModel = new ButtonModule({side: side, row: r, column: c}, {situation: situation, numBatteries: this.defaults.NUM_BATTERIES, litIndicators: this.defaults.LIT_INDICATORS});
+		this.add(buttonModel);
+	},
+
+	addKnobModule: function(side, r, c, situation) {
+		var knobsModel = new KnobsModule({side: side, row: r, column: c}, {situation: situation});
+		this.add(knobsModel);
+	},
 
 	/**
 	 * Get the module at the specified location.
@@ -181,7 +212,6 @@ var ModuleManager = Backbone.Collection.extend({
 	 */
 	endGame: function(currentTime) {
 		MAX_FAILS = 3;		// bomb explodes upon this many fails
-		MAX_TIME = 600;		// num ms player starts with to disarm all modules
 		num_disarmed_modules = this.where({ passed: true }).length;
 		num_failed_modules = this.where({ failed: true }).length;
 
@@ -195,8 +225,128 @@ var ModuleManager = Backbone.Collection.extend({
 	}
 });
 
+var BombView = Backbone.View.extend({
+	attributes: {},
+
+	/**
+	 * Displays bomb with all modules.
+	 * @param {int} cellWidth - the width of a cell
+	 */
+	initialize: function(attributes) {
+		this.collection = new ModuleManager();
+		this.attributes.bombModel = new BombModel();
+
+		var bombFrontView = new BombSideView({id: "bomb-front", idText: "FRONT", model: this.attributes.bombModel});
+		var bombBackView = new BombSideView({id: "bomb-back", idText: "BACK", model: this.attributes.bombModel});
+
+		this.collection.each(function(model) {
+			var currentView = null;
+			if (model.get("TYPE") == "wires") {
+				currentView = new WiresView({model: model, cellWidth: attributes.cellWidth});
+			} else if (model.get("TYPE") == "button") {
+				currentView = new ButtonView({model: model});
+			} else if (model.get("TYPE") == "knobs") {
+				currentView = new KnobsView({model: model});
+			} else {
+
+			}
+
+			var side = model.get("side");
+			var cellName = "td.r" + String(model.get("row")+1) + "-c" + String(model.get("column")+1);
+			var cell = null;
+
+			if (side) {
+				cell = $(bombBackView.el).find(cellName);
+			} else {
+				cell = $(bombFrontView.el).find(cellName);
+			}
+
+			cell.html(currentView.el);
+		});
+
+		document.body.append(bombFrontView.el);
+		document.body.append(bombBackView.el);
+		
+		// Display the front of the bomb and hide the back
+		bombFrontView.display();
+		bombBackView.display();
+
+		return this.render();
+	},
+
+	render: function() {
+		return this.el;
+	},
+
+	getSide: function() {
+		return this.attributes.bombModel.getSide();
+	},
+
+	changeSides: function() {
+		this.attributes.bombModel.changeSides();
+	},
+
+	/**
+	 * Get the module at the specified location.
+	 * @param {int} side - front is 0, back is 1
+	 * @param {int} row - top row is 0, bottom row is 1
+	 * @param {int} column - from left to right, columns are numbered 0 to 2
+	 * @return {module} the module at the specified location, or null if there is no module at that location
+	 */
+	getModuleAt: function(side, row, column) {
+		return this.collection.getModuleAt(side, row, column);
+	},
+
+	/**
+	 * Make the module at the specified location active and activate hover on it. Make all other active modules inactive and deactivate hover on them.
+	 * @param {int} side - front is 0, back is 1
+	 * @param {int} row - top row is 0, bottom row is 1
+	 * @param {int} column - from left to right, columns are numbered 0 to 2
+	 * @param {List<float>} screenPosition - screen position of cursor
+	 */
+	startIntersectingModule: function(side, row, column, screenPosition) {
+		this.collection.startIntersectingModule(side, row, column, screenPosition);
+	},
+
+	/**
+	 * Make all active modules inactive.
+	 */
+	stopIntersectingModules: function() {
+		this.collection.stopIntersectingModules();
+	},
+
+	onCircle: function(clockwise) {
+		this.collection.onCircle();
+	},
+
+	onKeyTap: function() {
+		this.collection.onKeyTap();
+	},
+
+	onScreenTap: function() {
+		this.collection.onScreenTap();
+	},
+
+	/**
+	 * If the game is over, .
+	 * @param {int} currentTime - number of ms since game started
+	 */
+	endGame: function(currentTime) {
+		var done = this.collection.endGame(currentTime);
+		
+		if (done[0]) {
+			if (done[1]) {
+				window.alert("You defused the bomb!");
+			} else {
+				window.alert("The bomb exploded!");
+			}
+		}
+	}
+});
+
 var WiresModule = Module.extend({
 	defaults: {
+		TYPE: "wires",
 		POSSIBLE_WIRE_COLORS: ["red", "white", "blue", "black", "yellow"],
 		MIN_NUM_WIRES: 3,
 		MAX_NUM_WIRES: 6,
@@ -496,47 +646,47 @@ var WiresModule = Module.extend({
 	 * @param {int} wirePosition - the wire position, zero-indexed starting on the left side of the module
 	 */
 	passOrFail: function(wirePosition) {
-		var numWires = this.get(wires).length;
+		var numWires = this.get("wires").length;
 		var passed = false;
 
 		if (numWires == 3) {
-			if (!this.get(wires).includes("red")) {
+			if (!this.get("wires").includes("red")) {
 				passed = (wirePosition == 1);
-			} else if (_.last(this.get(wires)) == "white") {
+			} else if (_.last(this.get("wires")) == "white") {
 				passed = (wirePosition == numWires - 1);
-			} else if (this.get(wires).indexOf("blue") != this.get(wires).lastIndexOf("blue")) {
+			} else if (this.get("wires").indexOf("blue") != this.get("wires").lastIndexOf("blue")) {
 				passed = (wirePosition == this.get(wires).lastIndexOf("blue"));
 			} else {
 				passed = (wirePosition == numWires - 1);
 			}
 		} else if (numWires == 4) {
-			if (this.get(wires).indexOf("red") != this.get(wires).lastIndexOf("red") && serialNumber % 2 == 1) {
-				passed = (wirePosition == this.get(wires).lastIndexOf("red"));
-			} else if (_.last(this.get(wires)) == "yellow" && !this.get(wires).includes("red")) {
+			if (this.get("wires").indexOf("red") != this.get("wires").lastIndexOf("red") && serialNumber % 2 == 1) {
+				passed = (wirePosition == this.get("wires").lastIndexOf("red"));
+			} else if (_.last(this.get("wires")) == "yellow" && !this.get("wires").includes("red")) {
 				passed = (wirePosition == 0);
-			} else if (this.get(wires).indexOf("blue") == this.get(wires).lastIndexOf("blue") && this.get(wires).includes("blue")) {
+			} else if (this.get("wires").indexOf("blue") == this.get("wires").lastIndexOf("blue") && this.get("wires").includes("blue")) {
 				passed = (wirePosition == 0);
-			} else if (this.get(wires).indexOf("yellow") != this.get(wires).lastIndexOf("yellow")) {
+			} else if (this.get("wires").indexOf("yellow") != this.get("wires").lastIndexOf("yellow")) {
 				passed = (wirePosition == numWires - 1);
 			} else {
 				passed = (wirePosition == 1);
 			}
 		} else if (numWires == 5) {
-			if (_.last(this.get(wires)) == "black" && serialNumber % 2 == 1) {
+			if (_.last(this.get("wires")) == "black" && serialNumber % 2 == 1) {
 				passed = (wirePosition == 3);
-			} else if (this.get(wires).indexOf("red") == this.get(wires).lastIndexOf("red") && this.get(wires).includes("red") && this.get(wires).indexOf("yellow") != this.get(wires).lastIndexOf("yellow")) {
+			} else if (this.get("wires").indexOf("red") == this.get("wires").lastIndexOf("red") && this.get("wires").includes("red") && this.get("wires").indexOf("yellow") != this.get("wires").lastIndexOf("yellow")) {
 				passed = (wirePosition == 0);
-			} else if (!this.get(wires).includes("black")) {
+			} else if (!this.get("wires").includes("black")) {
 				passed = (wirePosition == 1);
 			} else {
 				passed = (wirePosition == 0);
 			}
 		} else {
-			if (!this.get(wires).includes("yellow") && serialNumber % 2 == 1) {
+			if (!this.get("wires").includes("yellow") && serialNumber % 2 == 1) {
 				passed = (wirePosition == 2);
-			} else if (this.get(wires).indexOf("yellow") == this.get(wires).lastIndexOf("yellow") && this.get(wires).includes("yellow") && this.get(wires).indexOf("white") != this.get(wires).lastIndexOf("white")) {
+			} else if (this.get("wires").indexOf("yellow") == this.get("wires").lastIndexOf("yellow") && this.get("wires").includes("yellow") && this.get("wires").indexOf("white") != this.get("wires").lastIndexOf("white")) {
 				passed = (wirePosition == 3);
-			} else if (!this.get(wires).includes("red")) {
+			} else if (!this.get("wires").includes("red")) {
 				passed = (wirePosition == numWires - 1);
 			} else {
 				passed =  (wirePosition == 3);
@@ -555,6 +705,13 @@ var WiresModule = Module.extend({
 		wireCuts = this.get("cutWires").slice();
 		wireCuts[activeWireIndex] = true;
 		this.set({cuttingWire: false, cutWires: wireCuts});
+
+		if (this.get("passed") || this.get("failed")) {
+			this.set({passed: false});
+			this.set({failed: true});
+		} else {
+			this.passOrFail(activeWireIndex);
+		}
 	}
 });
 
@@ -682,6 +839,7 @@ var WiresView = ModuleView.extend({
 
 var ButtonModule = Module.extend({
 	defaults: {
+		TYPE: "button",
 		POSSIBLE_BUTTON_COLORS: ["red", "yellow", "blue", "white", "green"],
 		POSSIBLE_BUTTON_LABELS: ["abort", "detonate", "hold"],
 		POSSIBLE_STRIP_COLORS: ["blue", "white", "yellow", "red", "green"],
@@ -896,6 +1054,7 @@ var ButtonView = ModuleView.extend({
 
 var KnobsModule = Module.extend({
 	defaults: {
+		TYPE: "knobs",
 		INITIAL_ROTATE: 268,
 		ROTATE_RATE: 1,
 		ROTATE_LOCK_ANGLE: 31.01,

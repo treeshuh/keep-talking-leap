@@ -4,11 +4,7 @@ var SWIPE_THRESH = 100;
 var CELL_WIDTH = 300;
 var ERROR_TEXT = "ERROROROROR";
 
-var NUM_BATTERIES = 4;
-var LIT_INDICATORS = ["frk"];
-var SERIAL_NUMBER = 31415;
-var moduleManager = new ModuleManager();
-var bombModel = new BombModel();
+var bombView = null;
 
 var cursor = new Cursor();
 var fingerCursors = [new Cursor(), new Cursor(), new Cursor(), new Cursor(), new Cursor()];
@@ -71,7 +67,7 @@ var updateFingerLocations = function(frame) {
 var findIntersectingModule = function(screenPosition) {
 	var tableOrigin = $("#bomb-front").offset();
 	
-	if (bombModel.getSide() == 1) {
+	if (bombView.getSide() == 1) {
 		var tableOrigin = $("#bomb-back").offset();
 	}
 
@@ -90,51 +86,8 @@ var findIntersectingModule = function(screenPosition) {
 	}
 }
 
-var makeTableFromRC = function(r, c) {
-	return "tr:nth-child(" + String(r+1) + ") td:nth-child(" + String(c+1) + ")";
-}
-
 
 /* UI SET UP */
-var addWireModule = function(parentSelector, r, c, numWires, situation) {
-	var side = 0;
-
-	if (parentSelector == "#bomb-back") {
-		side = 1;
-	}
-
-	var wiresModel = new WiresModule({side: side, row: r, column: c}, {numWires: numWires, situation: situation, serialNumber: SERIAL_NUMBER});
-	moduleManager.add(wiresModel);
-	var wiresView = new WiresView({model: wiresModel, cellWidth: CELL_WIDTH});
-	$(parentSelector + " " + makeTableFromRC(r, c)).html(wiresView.el);
-}
-
-var addButtonModule = function(parentSelector, r, c, situation) {
-	var side = 0;
-
-	if (parentSelector == "#bomb-back") {
-		side = 1;
-	}
-
-	var buttonModel = new ButtonModule({side: side, row: r, column: c}, {situation: situation, numBatteries: NUM_BATTERIES, litIndicators: LIT_INDICATORS});
-	moduleManager.add(buttonModel);
-	var buttonView = new ButtonView({model: buttonModel});
-	$(parentSelector + " " + makeTableFromRC(r, c)).html(buttonView.el);
-}
-
-var addKnobModule = function(parentSelector, r, c, situation) {
-	var side = 0;
-
-	if (parentSelector == "#bomb-back") {
-		side = 1;
-	}
-
-	var knobsModel = new KnobsModule({side: side, row: r, column: c}, {situation: situation});
-	moduleManager.add(knobsModel);
-	var knobsView = new KnobsView({model: knobsModel});
-	$(parentSelector + " " + makeTableFromRC(r, c)).html(knobsView.el);
-}
-
 var setUpUI = function() {
 	// set up cursor
 	var c = document.createElement("canvas");
@@ -151,24 +104,9 @@ var setUpUI = function() {
 		ctx.beginPath();
 		ctx.arc(position[0], position[1], 10, 0, 2*Math.PI);
 		ctx.fill();
-	});
-
-	// set up layout
-	var bombFrontView = new BombSideView({id: "bomb-front", idText: "FRONT", model: bombModel});
-	var bombBackView = new BombSideView({id: "bomb-back", idText: "BACK", model: bombModel});
-	document.body.append(bombFrontView.el);
-	document.body.append(bombBackView.el);
-
-	// add modules to layout
-	addWireModule("#bomb-front", 0, 0, 4, 1);
-	addWireModule("#bomb-back", 1, 1, 3, 2);
-	addButtonModule('#bomb-front', 1, 1, 6);
-	addButtonModule('#bomb-back', 1, 2, 4);
-	addKnobModule('#bomb-back', 0, 1, 0);
-
-	// Display the front of the bomb and hide the back
-	bombFrontView.display();
-	bombBackView.display();
+	});	
+	
+	var bombView = new BombView({cellWidth: CELL_WIDTH});
 
 	setUpFingerCursors();
 }
@@ -184,14 +122,14 @@ Leap.loop({hand: function(hand) {
     intersectingModule = findIntersectingModule(cursorPosition);
 
     if (intersectingModule) {
-    	var side = bombModel.getSide();
+    	var side = bombView.getSide();
     	var row = intersectingModule[0];
     	var column = intersectingModule[1];
-    	moduleManager.startIntersectingModule(side, row, column, cursorPosition);
+    	bombView.startIntersectingModule(side, row, column, cursorPosition);
 
     	// look for cutting
     	// palm position down
-    	var currentModule = moduleManager.getModuleAt(side, row, column);
+    	var currentModule = bombView.getModuleAt(side, row, column);
     	var activeWire = null;
 
     	if (currentModule) {
@@ -237,7 +175,7 @@ Leap.loop({hand: function(hand) {
     		}
     	}
     } else {
-    	moduleManager.stopIntersectingModules();
+    	bombView.stopIntersectingModules();
     }
 
     cursor.setScreenPosition(cursorPosition);
@@ -256,13 +194,13 @@ Leap.loop({hand: function(hand) {
 						clockwise = true;
 					}
 
-	            	moduleManager.onCircle(clockwise);
+	            	bombView.onCircle(clockwise);
 		            break;
 		        case "keyTap":
-		            moduleManager.onKeyTap();
+		            bombView.onKeyTap();
 		            break;
 		        case "screenTap":
-		            moduleManager.onScreenTap();
+		            bombView.onScreenTap();
 		            break;
 		        case "swipe":
 		        	console.log("Swipe Gesture");
@@ -272,7 +210,7 @@ Leap.loop({hand: function(hand) {
 
 					if (dist > SWIPE_THRESH && !swiping) {
 						swiping = true;
-						bombModel.changeSides();
+						bombView.changeSides();
 
 						window.setTimeout(function() {
 							swiping = false;

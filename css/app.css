@@ -163,19 +163,18 @@ canvas {
 	width: 10px;
 	display: inline-block;
 	background-color: var(--background-color);
-	box-shadow: 0 0  5px var(--shadow-color-1), 0 0 6px var(--shadow-color-2) inset;
+	box-shadow: 0 0  5px white, 0 0 6px white inset;
 	border: 1px solid white;
 	position: absolute;
 	top: 0;
 }
 
 .wire.hover-wire {
-	box-shadow: 0 0 10px var(--shadow-color-1);
+	box-shadow: 0 0 10px white;
 }
 
 .wire.indicate-wire {
-	background-color: rgba(231, 76, 60, 1);
-	box-shadow: 0 0 10px var(--shadow-color-1), 0 0 8px var(--shadow-color-2) inset;
+	box-shadow: 0 0 20px var(--shadow-color-1), 0 0 8px var(--shadow-color-2) inset;
 }
 
 .wire.cut-wire {
@@ -184,15 +183,15 @@ canvas {
 }
 
 .red {
-	--background-color: #cf000f;
-	--shadow-color-1: #dc3023;
-	--shadow-color-2: #c3272b;
+	--background-color: #b71c0c;
+	--shadow-color-1: #c72c1c;
+	--shadow-color-2: #a70c00;
 }
 
 .yellow {
-	--background-color: #f7ca18;
-	--shadow-color-1: #f4d03f;
-	--shadow-color-2: #ffb613;
+	--background-color: #ffcf4b;
+	--shadow-color-1: #fde3a7;
+	--shadow-color-2: #f9bf3b;
 }
 
 .green {
@@ -202,9 +201,9 @@ canvas {
 }
 
 .blue {
-	--background-color: #19b5fe;
-	--shadow-color-1: #89c4f4;
-	--shadow-color-2: #22a7f0;
+	--background-color: #29c5ff;
+	--shadow-color-1: #39d5ff;
+	--shadow-color-2: #19b5fe;
 }
 
 .white {
@@ -214,7 +213,7 @@ canvas {
 }
 
 .black {
-	--background-color: #2c3e50;
-	--shadow-color-1: #5d3f6a;
-	--shadow-color-2: #89729e;
+	--background-color: #303030;
+	--shadow-color-1: #404040;
+	--shadow-color-2: #000000;
 }
