@@ -86,13 +86,25 @@ var BombSideView = Backbone.View.extend({
 
 var ModuleManager = Backbone.Collection.extend({
 	model: Module,
+	attributes: {
+		MAX_FAILS: 3,
+	},
 
 	initialize: function() {
+		this.addFailIndicator(0, 1, 2);
 		this.addWireModule(0, 0, 0, 4, 1);
 		this.addWireModule(1, 1, 1, 3, 2);
 		this.addButtonModule(0, 1, 1, 6);
 		this.addButtonModule(1, 1, 2, 4);
 		this.addKnobModule(0, 0, 1, 7);
+
+		this.on("change:failed", this.onFail);
+		this.on("change:passed", this.onSuccess);
+	},
+
+	addFailIndicator: function(side, r, c) {
+		var failIndicatorModel = new FailIndicator({side: side, row: r, column: c});
+		this.add(failIndicatorModel);
 	},
 
 	addWireModule: function(side, r, c, numWires, situation) {
@@ -185,24 +197,27 @@ var ModuleManager = Backbone.Collection.extend({
 		}
 	},
 
+	onFail: function() {
+		var failIndicator = this.findWhere({TYPE: "failIndicator"});
+		failIndicator.increaseFailCount();
+		this.endGame();
+	},
+
+	onSuccess: function() {
+		this.endGame();
+	},
+
 	/**
 	 * Check if game is over.
-	 * @param {int} currentTime - number of ms since game started
-	 * @return {List<bool>} an array of 2 booleans answering:
-	 *		1: is the game over?
-	 *		2: did the player win?
 	 */
-	endGame: function(currentTime) {
-		MAX_FAILS = 3;		// bomb explodes upon this many fails
-		num_disarmed_modules = this.where({ passed: true }).length;
-		num_failed_modules = this.where({ failed: true }).length;
-
-		if (num_failed_modules == MAX_FAILS || currentTime > MAX_TIME) {
-			return [true, false];
+	endGame: function() {
+		var num_disarmed_modules = this.where({ passed: true }).length;
+		var num_failed_modules = this.where({ failed: true }).length;
+		
+		if (num_failed_modules == this.attributes.MAX_FAILS) {
+			window.alert("The bomb exploded!");
 		} else if (this.length == num_disarmed_modules + num_failed_modules) {
-			return [true, true];
-		} else {
-			return [false, false];
+			window.alert("You defused the bomb!");
 		}
 	}
 });
@@ -229,8 +244,8 @@ var BombView = Backbone.View.extend({
 				currentView = new ButtonView({model: model});
 			} else if (model.get("TYPE") == "knobs") {
 				currentView = new KnobsView({model: model, cellWidth: attributes.cellWidth});
-			} else {
-
+			} else if (model.get("TYPE") == "failIndicator") {
+				currentView = new FailIndicatorView({model: model, cellWidth: attributes.cellWidth});
 			}
 
 			var side = model.get("side");
@@ -308,20 +323,61 @@ var BombView = Backbone.View.extend({
 	onScreenTap: function() {
 		this.collection.onScreenTap();
 	},
+});
 
-	/**
-	 * If the game is over, .
-	 * @param {int} currentTime - number of ms since game started
-	 */
-	endGame: function(currentTime) {
-		var done = this.collection.endGame(currentTime);
-		
-		if (done[0]) {
-			if (done[1]) {
-				window.alert("You defused the bomb!");
-			} else {
-				window.alert("The bomb exploded!");
-			}
+var FailIndicator = Module.extend({
+	defaults: {
+		TYPE: "failIndicator",
+		failCount: 0
+	},
+
+	initialize: function(attributes, options) {
+		this.set({side: attributes.side, row: attributes.row, column: attributes.column});
+		this.set({passed: true});
+	},
+
+	increaseFailCount: function() {
+		var count = this.get("failCount");
+		this.set({failCount: count + 1});
+	}
+});
+
+var FailIndicatorView = ModuleView.extend({
+	tagName: 'div',
+	className: 'module fail-indicator',
+	template: _.template($("#failIndicatorTemplate").html()),
+	model: "none",
+	attributes: {
+		LED_WIDTH: 60
+	},
+
+	initialize: function(attributes) {
+		this.model = attributes.model;
+		this.attributes.cellWidth = attributes.cellWidth;
+		this.listenTo(this.model, "change:failCount", this.onFail);
+
+		return this.render();
+	},
+
+	render: function() {
+		this.$el.html(this.template(this.model.toJSON()));
+		this.$el.css({width: this.attributes.cellWidth, height: this.attributes.cellWidth});
+
+		var blankSpace = this.attributes.cellWidth - this.attributes.LED_WIDTH*3;
+		var offset = blankSpace / 4.0;
+
+		this.$el.find("div.fail-led.left").css({left: String(offset+"px")});
+		this.$el.find("div.fail-led.middle").css({left: String(this.attributes.LED_WIDTH + 2*offset + "px")});
+		this.$el.find("div.fail-led.right").css({right: String(offset+"px")});
+
+		return this.el;
+	},
+
+	onFail: function() {
+		var leds = this.$el.children("div.fail-led");
+
+		for (var i=0; i<this.model.get("failCount"); ++i) {
+			$(leds[i]).addClass("on");
 		}
 	}
 });
@@ -885,17 +941,15 @@ var ButtonModule = Module.extend({
 		} else if (this.get("buttonColor") == "yellow") {
 			passed = this.get("numPresses") == 1;
 		} else if (this.get("buttonColor") == "red" && this.get("buttonLabel") == "hold") {
-			console.log(this.get("numPresses") == 2);
 			passed = this.get("numPresses") == 2;
-			console.log(passed);
 		} else {
 			passed = this.get("numPresses") == 1;
 		}
 
 		if (passed) {
-			this.set({passed: passed});
+			this.set({passed: true});
 		} else {
-			this.set({failed: passed});
+			this.set({failed: true});
 		}
 	},
 
@@ -927,6 +981,7 @@ var ButtonView = ModuleView.extend({
 		this.listenTo(this.model, "change:passed", this.onPass);
 		this.listenTo(this.model, "change:failed", this.onFail);
 		this.listenTo(this.model, "change:hoverPosition", this.onHover);
+		this.listenTo(this.model, "change:numPresses", this.onPress)
 
 		return this.render();
 	},
@@ -975,16 +1030,26 @@ var ButtonView = ModuleView.extend({
 
 	onStopHover: function() {
 		this.$el.removeClass("hover-btn");
-	}
+		this.$el.removeClass("active-btn");
+	},
+
+	onPress: function() {
+		this.$el.addClass("active-btn");
+		var here = this.$el;
+
+    	window.setTimeout(function() {
+		    here.removeClass("active-btn");
+		}, 500);
+	},
 });
 
 var KnobsModule = Module.extend({
 	defaults: {
 		TYPE: "knobs",
-		INITIAL_ROTATE: 255,
+		INITIAL_ROTATE: 268,
 		ROTATE_RATE: 1,
 		ROTATE_LOCK_ANGLE: 31.01,
-		currentRotate: 255,
+		currentRotate: 268,
 		currentValue: null
 	},
 
@@ -1014,15 +1079,17 @@ var KnobsModule = Module.extend({
 
 	onCircle: function(clockwise) {
 		console.log("Circle Gesture");
-		var currentAngle = this.get("currentRotate");
-		
-		if (clockwise) {
-			currentAngle -= this.get("ROTATE_RATE");
-		} else {
-			currentAngle += this.get("ROTATE_RATE");
-		}
+		if (!this.get("passed") && !this.get("failed")) {
+			var currentAngle = this.get("currentRotate");
+			
+			if (clockwise) {
+				currentAngle += this.get("ROTATE_RATE");
+			} else {
+				currentAngle -= this.get("ROTATE_RATE");
+			}
 
-		this.set({currentRotate: currentAngle});
+			this.set({currentRotate: currentAngle});
+		}
 	}
 });
 
@@ -1134,7 +1201,7 @@ var KnobsView = ModuleView.extend({
 	onRotate: function() {
 		var rotation = this.model.get("currentRotate");
 		var currentVal = this.knobRotationToValue(rotation);
-		console.log(rotation);
+
 		this.model.set({currentValue: currentVal});
 		this.$el.find("div.knob-text").text(currentVal);
 		this.$el.find("img.knob-img").css({"transform": 'rotate(' + rotation + 'deg)'});	
