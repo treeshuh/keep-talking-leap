@@ -9,6 +9,7 @@ var bombView = null;
 var cursor = new Cursor();
 var fingerCursors = [new Cursor(), new Cursor(), new Cursor(), new Cursor(), new Cursor()];
 var swiping = false;
+var pressing = false;
 var pointingFingers = [];
 var startDist = null;
 var cutReset = false;
@@ -106,7 +107,7 @@ var setUpUI = function() {
 		ctx.fill();
 	});	
 	
-	var bombView = new BombView({cellWidth: CELL_WIDTH});
+	bombView = new BombView({cellWidth: CELL_WIDTH});
 
 	setUpFingerCursors();
 }
@@ -118,6 +119,7 @@ setUpUI();
 Leap.loop({hand: function(hand) {
     var handPosition = hand.screenPosition();
     var cursorPosition = [handPosition[0]-100, handPosition[1]+300];
+
 
     intersectingModule = findIntersectingModule(cursorPosition);
 
@@ -193,14 +195,30 @@ Leap.loop({hand: function(hand) {
 					if (dotProduct  >  0) {
 						clockwise = true;
 					}
-
+					
 	            	bombView.onCircle(clockwise);
 		            break;
 		        case "keyTap":
-		            bombView.onKeyTap();
+		        	if (!pressing) {
+		        		pressing = true;
+		        		bombView.onKeyTap();
+
+		        		window.setTimeout(function() {
+		        			pressing = false;
+		        		}, 1000);
+		        		console.log("Key tapped!!!!");
+		        	}
 		            break;
 		        case "screenTap":
-		            bombView.onScreenTap();
+		        	if (!pressing) {
+		        		pressing = true;
+		            	bombView.onScreenTap();
+
+		        		window.setTimeout(function() {
+		        			pressing = false;
+		        		}, 1000);
+		        		console.log("Screen tapped!!!!");
+		        	}
 		            break;
 		        case "swipe":
 		        	console.log("Swipe Gesture");
@@ -215,7 +233,7 @@ Leap.loop({hand: function(hand) {
 						window.setTimeout(function() {
 							swiping = false;
 						}, 1000);
-						console.log('Swiped!!!!')
+						console.log('Swiped!!!!');
 					}
 
 					break;
