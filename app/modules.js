@@ -385,7 +385,7 @@ var FailIndicatorView = ModuleView.extend({
 var WiresModule = Module.extend({
 	defaults: {
 		TYPE: "wires",
-		POSSIBLE_WIRE_COLORS: ["red", "white", "blue", "black", "yellow"],
+		POSSIBLE_WIRE_COLORS: ["red", "white", "blue", "green", "yellow"],
 		MIN_NUM_WIRES: 3,
 		MAX_NUM_WIRES: 6,
 
@@ -551,10 +551,10 @@ var WiresModule = Module.extend({
 
 				wireSet[randomizedIndices[numYellowWires]] = "red";
 			} else if (situation == 3) {
-				wireSet = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "black"), numWires);
+				wireSet = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "green"), numWires);
 			} else {
-				var numBlackWires = _.random(1, numWires);
-				var numOtherWireColors = numWires - numBlackWires;
+				var numGreenWires = _.random(1, numWires);
+				var numOtherWireColors = numWires - numGreenWires;
 				var numRedWires = _.random(0, numOtherWireColors);
 				numOtherWireColors -= numRedWires;
 				var numYellowWires = _.random(0, numOtherWireColors);
@@ -567,7 +567,7 @@ var WiresModule = Module.extend({
 				var selectedWireColors = [];
 				
 				if (numOtherWireColors >= 1) {
-					selectedWireColors = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red", "yellow", "black"), numOtherWireColors);
+					selectedWireColors = _.sample(_.without(this.get("POSSIBLE_WIRE_COLORS"), "red", "yellow", "green"), numOtherWireColors);
 				}
 
 				for (var i=0; i<numWires; ++i) {
@@ -580,13 +580,13 @@ var WiresModule = Module.extend({
 					}
 
 					if (i < numBlackWires) {
-						selectedWireColors.push("black");
+						selectedWireColors.push("green");
 					}
 				}
 
 				var lastColor = null;
 
-				lastColor = _.sample(_.without(selectedWireColors, "black"));
+				lastColor = _.sample(_.without(selectedWireColors, "green"));
 				selectedWireColors.splice(indexOf(lastColor), 1);
 				wireSet = _.shuffle(selectedWireColors);
 				wireSet.push(lastColor);
@@ -640,7 +640,7 @@ var WiresModule = Module.extend({
 					}
 
 					if (i < numBlackWires) {
-						selectedWireColors.push("black");
+						selectedWireColors.push("white");
 					}
 				}
 
@@ -683,11 +683,11 @@ var WiresModule = Module.extend({
 				passed = (wirePosition == 1);
 			}
 		} else if (numWires == 5) {
-			if (_.last(this.get("wires")) == "black") {
+			if (_.last(this.get("wires")) == "green") {
 				passed = (wirePosition == 3);
 			} else if (this.get("wires").indexOf("red") == this.get("wires").lastIndexOf("red") && this.get("wires").includes("red") && this.get("wires").indexOf("yellow") != this.get("wires").lastIndexOf("yellow")) {
 				passed = (wirePosition == 0);
-			} else if (!this.get("wires").includes("black")) {
+			} else if (!this.get("wires").includes("green")) {
 				passed = (wirePosition == 1);
 			} else {
 				passed = (wirePosition == 0);

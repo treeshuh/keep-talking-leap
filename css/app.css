@@ -242,7 +242,7 @@ div.knob-led.bottom {
 }
 
 .wire.hover-wire {
-	box-shadow: 0 0 10px white;
+	box-shadow: 0 0 15px white;
 }
 
 .wire.indicate-wire {
