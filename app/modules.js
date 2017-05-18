@@ -313,7 +313,7 @@ var BombView = Backbone.View.extend({
 	},
 
 	onCircle: function(clockwise) {
-		this.collection.onCircle();
+		this.collection.onCircle(clockwise);
 	},
 
 	onKeyTap: function() {
